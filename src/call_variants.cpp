@@ -50,7 +50,7 @@ int call_variants_from_plup(std::istream &cin, std::string out_file, uint8_t min
        << std::endl;
   int ctr = 0;
   int64_t pos = 0;
-  uint32_t mdepth = 0, pdepth = 0; // mpdepth for mpileup depth and pdeth for ungapped depth at position
+  uint32_t mdepth = 0, pdepth = 0, gdepth =0; // mpdepth for mpileup depth and pdeth for ungapped depth at position
   double pval_left, pval_right, pval_twotailed, *freq_depth, err;
   std::stringstream line_stream;
   char ref;
@@ -86,6 +86,7 @@ int call_variants_from_plup(std::istream &cin, std::string out_file, uint8_t min
       }
       ctr++;
     }
+    
     ad = update_allele_depth(ref, bases, qualities, min_qual);
     if(ad.size() == 0){
       line_stream.clear();
@@ -93,10 +94,13 @@ int call_variants_from_plup(std::istream &cin, std::string out_file, uint8_t min
     }
     // Get ungapped depth
     pdepth = 0;
+    //get gapped depth
+    gdepth = 0;
     for(std::vector<allele>::iterator it = ad.begin(); it != ad.end(); ++it) {
+      gdepth += it->depth;
       //commenting these two lines gets the gapped depth
-      //if(it->nuc[0]=='*' || it->nuc[0] == '+' || it->nuc[0] == '-')
-	//continue;
+      if(it->nuc[0]=='*' || it->nuc[0] == '+' || it->nuc[0] == '-')
+	continue;
       pdepth += it->depth;
     }
     if(pdepth < min_depth) {	// Check for minimum depth
@@ -118,7 +122,7 @@ int call_variants_from_plup(std::istream &cin, std::string out_file, uint8_t min
 	continue;
       //use gapped depth if we're looking at insertion or deletion
       if (it->nuc[0] == '+' || it->nuc[0] == '-'){
-        freq_depth = get_frequency_depth(*it, pdepth, pdepth);
+        freq_depth = get_frequency_depth(*it, gdepth, gdepth);
       }else{
         freq_depth = get_frequency_depth(*it, pdepth, mdepth);
       }
