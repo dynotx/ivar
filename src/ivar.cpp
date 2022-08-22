@@ -15,7 +15,7 @@
 #include "get_masked_amplicons.h"
 #include "suffix_tree.h"
 #include "get_common_variants.h"
-
+#include "clustering.h"
 const std::string VERSION = "1.3.1";
 
 struct args_t {
@@ -132,7 +132,8 @@ void print_consensus_usage(){
     "           -n    (N/-) Character to print in regions with less than minimum coverage(Default: N)\n\n"
     "Output Options   Description\n"
     "           -p    (Required) Prefix for the output fasta file and quality file\n"
-    "           -i    (Optional) Name of fasta header. By default, the prefix is used to create the fasta header in the following format, Consensus_<prefix>_threshold_<frequency-threshold>_quality_<minimum-quality>_<min-insert-threshold>\n";
+    "           -i    (Optional) Name of fasta header. By default, the prefix is used to create the fasta header in the following format, Consensus_<prefix>_threshold_<frequency-threshold>_quality_<minimum-quality>_<min-insert-threshold>\n"
+    "           -f    (Optional) Primer pair file .tsv\n";
 }
 
 void print_removereads_usage(){
@@ -178,7 +179,7 @@ void print_version_info(){
 
 static const char *trim_opt_str = "i:b:f:x:p:m:q:s:ekh?";
 static const char *variants_opt_str = "p:t:q:m:r:g:h?";
-static const char *consensus_opt_str = "i:p:q:t:c:m:n:kh?";
+static const char *consensus_opt_str = "i:p:q:t:c:m:n:kfh?";
 static const char *removereads_opt_str = "i:p:t:b:h?";
 static const char *filtervariants_opt_str = "p:t:f:h?";
 static const char *getmasked_opt_str = "i:b:f:p:h?";
@@ -349,6 +350,7 @@ int main(int argc, char* argv[]){
     g_args.min_qual = 20;
     g_args.keep_min_coverage = true;
     g_args.min_insert_threshold = 0.8;
+    g_args.primer_pair_file ="";
     while( opt != -1 ) {
       switch( opt ) {
       case 't':
@@ -374,6 +376,9 @@ int main(int argc, char* argv[]){
 	break;
       case 'k':
 	g_args.keep_min_coverage = false;
+      case 'f':
+  g_args.primer_pair_file = optarg;
+  break;
       case 'g':
 	break;
       case 'h':
@@ -392,6 +397,9 @@ int main(int argc, char* argv[]){
       std::cout << "Please pipe mpileup into `ivar consensus` command.\n\n";
       print_consensus_usage();
       return -1;
+    }
+    if(g_args.primer_pair_file != ""){
+      determine_threshold();
     }
     g_args.prefix = get_filename_without_extension(g_args.prefix,".fa");
     g_args.prefix = get_filename_without_extension(g_args.prefix,".fasta");
