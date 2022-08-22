@@ -1,3 +1,6 @@
+#include "htslib/hts.h"
+#include "htslib/sam.h"
+#include "htslib/bgzf.h"
 #include <iostream>
 #include <fstream>
 #include <unistd.h>
@@ -147,5 +150,37 @@ void k_means(int n_clusters){
   calculate_cluster_centers(xy, rep, n_clusters);
 }
 
+void iterate_reads(bam1_t *r){
+  //get cigar for this read
+  //uint32_t *cigar = bam_get_cigar(r);
+  uint32_t i = 0;  
+  //iterate through each cigar operation, using only what doesn't match the ref or is SC
+  //ie. we use insertions, deletions, substitutions
+  while(i < r->core.n_cigar){
+    break;
+  }
+  std::cout << "made it this far" << std::endl;
+}
 
+void determine_threshold(std::string bam){
+  std::cout << "Begin threshold optimiziation" << std::endl;
+  samFile *in = hts_open(bam.c_str(), "r");
+  hts_idx_t *idx = sam_index_load(in, bam.c_str());
+  bam_hdr_t *header = sam_hdr_read(in);
+  bam1_t *aln = bam_init1();
+  hts_itr_t *iter = NULL;
+  std::string region_;
+  //region refers to reference
+  region_.assign(header->target_name[0]);
+  iter  = sam_itr_querys(idx, header, region_.c_str());
 
+  //initialize haplotype data structure
+  
+  //this iterates over the reads and assigns them to an amplicon
+  while(sam_itr_next(in, iter, aln) >= 0) {
+    iterate_reads(aln);  
+  }
+
+  //cry 
+ 
+}
