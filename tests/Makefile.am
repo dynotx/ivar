@@ -24,4 +24,4 @@ check_interval_tree_SOURCES = test_interval_tree.cpp ../src/primer_bed.cpp ../sr
 check_amplicon_search_SOURCES = test_amplicon_search.cpp ../src/trim_primer_quality.cpp ../src/primer_bed.cpp ../src/interval_tree.cpp
 
 check_clustering_LDADD = ../src/alglib/lib/libalglib.a
-check_clustering_SOURCES = test_clustering.cpp ../src/clustering.cpp ../src/primer_bed.cpp 
+check_clustering_SOURCES = test_clustering.cpp ../src/clustering.cpp ../src/primer_bed.cpp  ../src/interval_tree.cpp

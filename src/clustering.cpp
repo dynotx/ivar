@@ -10,9 +10,13 @@
 #include <vector>
 #include "ap.h"
 #include "dataanalysis.h"
+#include "interval_tree.h"
+#include "primer_bed.h"
 #include "stdafx.h"
+#include "clustering.h"
 using namespace alglib;
 
+//get the average of a vector
 float average(std::vector<float> x){
   float sumTotal = 0;
   for(float k=0; k < x.size(); ++k){
@@ -21,6 +25,85 @@ float average(std::vector<float> x){
   return(sumTotal / x.size());
 }
 
+int encoded_nucs(char &tmp){
+  /*
+   * @param tmp : nucleotide to encode
+   * @return encoded_nuc : nucleotide encoded as an int
+   *
+   * Encoded the char passed using the following system:
+   * A:0, C:1, G:2, T:4, Del:5, Ins:6
+   */
+  int encoded_nuc = -1;
+  
+  if (tmp == 'A') {
+    encoded_nuc = 0;
+  }else if(tmp == 'C'){
+    encoded_nuc = 1;
+  }else if (tmp == 'G'){
+    encoded_nuc = 2;
+  }else if(tmp == 'T'){
+    encoded_nuc = 3;
+  }
+  return(encoded_nuc);
+}
+
+int parse_md_tag(uint8_t *aux, std::vector<int> &haplotypes, std::vector<int> &positions){
+  /*
+   * @param aux : the md tag
+   * @param haplotypes : vector with encoded nuc haplotypes
+   * @param positions : the positions of sub,ins, and dels that make the haplotype
+   * @return total : the total number of bases seen in the MD tag
+   *
+   * Parse the MD tag, populating the haplotypes and positions of the amplicon with
+   * deletions and substitutions, returning the total number of bases accounted for.
+   * Any discrepency between the cigar string and MD tag means insertions are in the read.
+   */
+  
+  //std::cout << "aux " << aux << std::endl;
+  int total = 0; //the total num bases accounted for in the MD tag, any less than cigar means insertion
+  bool last_digit = false; //helping to track total nums
+  std::string digits; //helping to track number operations 
+                           
+  //length of this is random
+  for(int i = 1; i < 100; i++){
+    char tmp = aux[i];
+    //if we reach the end of the unsigned char we stop iterating
+    if(tmp == '\0'){
+      //this makes sure if we end with a number it gets accounts for 
+      if(last_digit){
+        int a = std::stoi(digits);
+        total += a;
+        last_digit = false;
+        digits.clear();
+      }
+      break;
+    }
+    if(isdigit(tmp)){
+      last_digit = true;
+      digits += tmp;
+    }else if (isalpha(tmp)){
+      if(last_digit){
+        int a = std::stoi(digits);
+        total += a;
+        last_digit = false;
+        digits.clear();
+      }
+      positions.push_back(total);
+      haplotypes.push_back(encoded_nucs(tmp));
+      total += 1;
+    }else{
+      std::cout << "other " << tmp << std::endl;
+    }
+  }
+  //std::cout << "total seen " << total << std::endl;
+  //for(int x:haplotypes){
+  //  std::cout << "haplotypes " << x << std::endl;
+  //}
+  //for(int x:positions){
+  //  std::cout << "positions " << x << std::endl;
+  //}
+  return(total);
+}
 
 //calculate the cluster centers
 std::vector<float> calculate_cluster_centers(alglib::real_2d_array X, alglib::kmeansreport rep, int n_clusters){
@@ -150,20 +233,80 @@ void k_means(int n_clusters){
   calculate_cluster_centers(xy, rep, n_clusters);
 }
 
-void iterate_reads(bam1_t *r){
-  //get cigar for this read
-  //uint32_t *cigar = bam_get_cigar(r);
+void iterate_reads(bam1_t *r, IntervalTree &amplicons){
+  /*
+   * @param r : alignment object
+   * @param track_haplotypes : vector containing haplotype objects per amplicon
+   * 
+   * In this function we encode the changes to the reference as follows:
+   * A:0, C:1, G:2, T:4, Del:5, Ins:6
+   */
+
+  //get the cigar operation 
+  uint32_t *cigar = bam_get_cigar(r);
+
   uint32_t i = 0;  
-  //iterate through each cigar operation, using only what doesn't match the ref or is SC
-  //ie. we use insertions, deletions, substitutions
-  while(i < r->core.n_cigar){
-    break;
+
+  //keep track of operation and length of operation
+  uint32_t op;
+  uint32_t op_len;
+
+  //1 = A, 2 = C, 8 = G, 15 = N bits 
+  //get a pointer to the sequence
+  uint8_t *seq = bam_get_seq(r);
+
+  //get pointer to MD:Z tag which tells us where substitutions are
+  uint8_t *aux = bam_aux_get(r, "MD");
+ 
+  //temp variable to count positions
+  int start = 0;
+  //these need to be tied to the amplicon object
+  std::vector<int> haplotypes;
+  std::vector<int> positions;
+  std::cout << "\n";
+  int md_total = parse_md_tag(aux, haplotypes, positions); //total bases accounted in md tag
+  std::cout << "md total " << md_total << std::endl;
+  //iterate through cigar ops for this read
+  while(i < r->core.n_cigar){   
+    //std::cout << "\n"; 
+    //gives us the left mose mapping position comnsimes the reference, sc doesnt consume ref
+    //assign this read to an amplicon
+    //std::cout << "pos " << r->core.pos << std::endl;
+    //std::cout << "end pos " << bam_endpos(r) << std::endl;
+
+    op = bam_cigar_op(cigar[i]); //cigar operation
+    op_len = bam_cigar_oplen(cigar[i]); //cigar length
+    start += op_len; //total positions iterated
+    std::cout << op << " " << op_len << std::endl; 
+    //these are the only operations we care about
+    if(op == 1){
+      std::cout << op << " " << op_len << std::endl;
+      std::cout << aux << std::endl;
+      std::cout << "bam seq i " << bam_seqi(seq, 22) << std::endl; 
+    }
+    i++;
   }
-  std::cout << "made it this far" << std::endl;
+  
+  amplicons.inOrder();
 }
 
-void determine_threshold(std::string bam){
-  std::cout << "Begin threshold optimiziation" << std::endl;
+//entry point for threshold determination
+void determine_threshold(std::string bam, std::string bed, std::string pair_info, int32_t primer_offset = 0){
+  /*
+   * @param bam : path to the bam file
+   * @param bed : path to the bed file
+   * @param pair_info : path to the primer pair .tsv file
+   * @param primer_offset : 
+   */
+
+  //initialize haplotype data structure
+  //std::vector<haplotype> track_haplotypes;
+  std::vector<primer> primers;
+  IntervalTree amplicons;
+  //populate primer, and primer pairs
+  primers = populate_from_file(bed, primer_offset);
+  amplicons = populate_amplicons(pair_info, primers);
+  amplicons.inOrder();
   samFile *in = hts_open(bam.c_str(), "r");
   hts_idx_t *idx = sam_index_load(in, bam.c_str());
   bam_hdr_t *header = sam_hdr_read(in);
@@ -172,15 +315,21 @@ void determine_threshold(std::string bam){
   std::string region_;
   //region refers to reference
   region_.assign(header->target_name[0]);
-  iter  = sam_itr_querys(idx, header, region_.c_str());
-
-  //initialize haplotype data structure
   
+  iter  = sam_itr_querys(idx, header, region_.c_str());
+  //test variable
+  int j = 0;
+
   //this iterates over the reads and assigns them to an amplicon
   while(sam_itr_next(in, iter, aln) >= 0) {
-    iterate_reads(aln);  
+    //pull out the relevant diff from reference
+    iterate_reads(aln, amplicons);
+    j++;
+    if(j > 10){
+      break;
+    }
   }
 
-  //cry 
- 
+  //cry about how difficult this is 
 }
+

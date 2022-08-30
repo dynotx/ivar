@@ -399,7 +399,7 @@ int main(int argc, char* argv[]){
       return -1;
     }
     if(g_args.primer_pair_file != ""){
-      determine_threshold();
+      //determine_threshold(std::cin);
     }
     g_args.prefix = get_filename_without_extension(g_args.prefix,".fa");
     g_args.prefix = get_filename_without_extension(g_args.prefix,".fasta");
