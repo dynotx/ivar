@@ -82,16 +82,48 @@ void IntervalTree::inOrder(ITNode *root){
 }
 
 //traverse the tree and find the amplicon the read belongs within
-void IntervalTree::find_amplicon_per_read(ITNode *root, int start, int end){
-  std::cout << "start " << start << " end " << end << std::endl;
-  return;
+void IntervalTree::find_amplicon_per_read(ITNode *root, int start, int end, 
+    std::vector<int> haplotypes, std::vector<int> positions){
+  /*
+   * @param root : IT node obj
+   * @param start : left-most position of read
+   * @param end : right-most position of read
+   *
+   * Takes in an interval tree, and a read start and end pos and adds 
+   * the haplotype, positions, and frequnecies to to internval tree object.
+   * Not all reads get used, only if they fall entirely within an amplicon.
+   */
   if (root == NULL) return;
-  inOrder(root->left);
-  cout << "[" << root->data->low << ", " << root->data->high << "]"
-       << " max = " << root->max << endl;
-  inOrder(root->right);
+ 
+  if ((start >= root->data->low) && (end <= root->data->high)){
+    std::cout << root->data->low << " " << root->data->high << std::endl;
+    //push the haplotype and positions to the node if we have any
+    if(haplotypes.size() > 0 && positions.size() > 0){
+      root->haplotypes.push_back(haplotypes);
+      root->positions.push_back(positions);
+    }
+    //always increment the read count, even if the read macthes the ref perfectly
+    root->read_count += 1;
+    return;
+  }else{
+   find_amplicon_per_read(root->right, start, end, haplotypes, positions);
+  }
 }
 
+//use this to print out haplotype and position information per amplicon
+void IntervalTree::print_amplicon_info(ITNode *root){
+  if (root == NULL) return;
+  //print position info
+  for(std::vector<int> x:root->positions){
+    std::cout << "haplotype ";
+    for(int t: x){
+      std::cout << t << " ";
+    }
+    std::cout << "\n";
+  }
+ 
+  print_amplicon_info(root->right);
+}
 
 // A stand-alone function to create a tree containing the coordinates of each amplicon
 // based on user-specified primer pairs
