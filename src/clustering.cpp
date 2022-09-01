@@ -183,8 +183,8 @@ float cluster_point_distances(alglib::real_2d_array X, alglib::kmeansreport rep,
 }
 
 //function calculates the sil score of all points
-float calculate_sil_score(alglib::real_2d_array X, alglib::kmeansreport rep, 
-    int n_clusters){
+void calculate_sil_score(alglib::real_2d_array X, alglib::kmeansreport rep, 
+    int n_clusters, cluster &cluster_results){
   /*
   * @params X : array containing data points
   * @params rep : kmeans reported object
@@ -205,8 +205,10 @@ float calculate_sil_score(alglib::real_2d_array X, alglib::kmeansreport rep,
     //(b - a) / max(a, b) sil score formula 
     //std::cout << "i " << i << " point " << point << " center " << center << " sil " << tmp << std::endl;     
   }
-  
-  return(0.0);
+
+  //store the cumulative results
+  cluster_results.sil_score = average(sil_scores);
+  cluster_results.sil_scores = sil_scores;
 }
 //does the actual k means ++ clustering in a loop
 void k_means(int n_clusters, alglib::real_2d_array xy, cluster &cluster_results){
@@ -219,6 +221,7 @@ void k_means(int n_clusters, alglib::real_2d_array xy, cluster &cluster_results)
   */
   alglib::clusterizerstate s;
   alglib::kmeansreport rep;
+ 
   cluster_results.n_clusters = n_clusters;
   
   int num_points = 6; //number of points in the data
@@ -243,7 +246,7 @@ void k_means(int n_clusters, alglib::real_2d_array xy, cluster &cluster_results)
     i++;
   }
  
-  calculate_sil_score(xy, rep, n_clusters);
+  calculate_sil_score(xy, rep, n_clusters, cluster_results);
   calculate_cluster_centers(xy, rep, n_clusters);
 }
 
