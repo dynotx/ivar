@@ -31,7 +31,7 @@ int encoded_nucs(char &tmp){
    * @return encoded_nuc : nucleotide encoded as an int
    *
    * Encoded the char passed using the following system:
-   * A:0, C:1, G:2, T:4, Del:5, Ins:6
+   * A:0, C:1, G:2, T:4, D:5, I:6
    */
   int encoded_nuc = -1;
   
@@ -43,27 +43,33 @@ int encoded_nucs(char &tmp){
     encoded_nuc = 2;
   }else if(tmp == 'T'){
     encoded_nuc = 3;
+  }else if(tmp == 'D'){
+    encoded_nuc = 4;
+  }else if(tmp == 'I'){
+    encoded_nuc = 5;
   }
   return(encoded_nuc);
 }
 
-int parse_md_tag(uint8_t *aux, std::vector<int> &haplotypes, std::vector<int> &positions){
+void parse_md_tag(uint8_t *aux, std::vector<int> &haplotypes, std::vector<int> &positions){
   /*
    * @param aux : the md tag
    * @param haplotypes : vector with encoded nuc haplotypes
    * @param positions : the positions of sub,ins, and dels that make the haplotype
-   * @return total : the total number of bases seen in the MD tag
    *
    * Parse the MD tag, populating the haplotypes and positions of the amplicon with
-   * deletions and substitutions, returning the total number of bases accounted for.
+   * substitutions.
    * Any discrepency between the cigar string and MD tag means insertions are in the read.
+   * Cigar code handles insertions and deletions elsewhere.
    */
   
   //std::cout << "aux " << aux << std::endl;
   int total = 0; //the total num bases accounted for in the MD tag, any less than cigar means insertion
   bool last_digit = false; //helping to track total nums
+  bool deletion = true;
   std::string digits; //helping to track number operations 
-                           
+  std::string deletion_nucs; 
+
   //length of this is random
   for(int i = 1; i < 100; i++){
     char tmp = aux[i];
@@ -78,10 +84,22 @@ int parse_md_tag(uint8_t *aux, std::vector<int> &haplotypes, std::vector<int> &p
       }
       break;
     }
-    if(isdigit(tmp)){
+    if(isdigit(tmp)){ //on digit character
+      if(deletion){
+        deletion = false;
+        positions.push_back(total);
+        char del = 'D';
+        haplotypes.push_back(encoded_nucs(del)); //this needs to be generalize to encode deletions that aren't a single NT
+        deletion_nucs.clear();
+        total += deletion_nucs.length();
+      }
       last_digit = true;
       digits += tmp;
-    }else if (isalpha(tmp)){
+    }else if (isalpha(tmp)){ //on alpha character
+      if(deletion){
+        deletion_nucs += tmp;
+        continue;
+      }
       if(last_digit){
         int a = std::stoi(digits);
         total += a;
@@ -91,18 +109,10 @@ int parse_md_tag(uint8_t *aux, std::vector<int> &haplotypes, std::vector<int> &p
       positions.push_back(total);
       haplotypes.push_back(encoded_nucs(tmp));
       total += 1;
-    }else{
-      std::cout << "other " << tmp << std::endl;
+    }else if (tmp == '^'){
+      deletion = true; 
     }
   }
-  //std::cout << "total seen " << total << std::endl;
-  //for(int x:haplotypes){
-  //  std::cout << "haplotypes " << x << std::endl;
-  //}
-  //for(int x:positions){
-  //  std::cout << "positions " << x << std::endl;
-  //}
-  return(total);
 }
 
 //calculate the cluster centers
@@ -199,15 +209,19 @@ float calculate_sil_score(alglib::real_2d_array X, alglib::kmeansreport rep,
   return(0.0);
 }
 //does the actual k means ++ clustering in a loop
-void k_means(int n_clusters){
+void k_means(int n_clusters, alglib::real_2d_array xy, cluster &cluster_results){
   /*
   * @params n_clusters : then number of clusters
-  * @params amplicon : amplicon object
+  * @params xy : matrix to do kmeans clustering on
+  * @params cluster_results : object storing the output of k means clustering
+  *
+  * Performs K means ++ clustering.
   */
   alglib::clusterizerstate s;
   alglib::kmeansreport rep;
-  alglib::real_2d_array xy = "[[1],[1],[4],[2],[4],[5]]";
-  int num_points = 6;
+  cluster_results.n_clusters = n_clusters;
+  
+  int num_points = 6; //number of points in the data
   clusterizercreate(s);
   //X is the data
   //the number of pointss
@@ -264,13 +278,13 @@ void iterate_reads(bam1_t *r, IntervalTree &amplicons){
   std::vector<int> haplotypes;
   std::vector<int> positions;
   std::cout << "\n";
-  int md_total = parse_md_tag(aux, haplotypes, positions); //total bases accounted in md tag
-  std::cout << "md total " << md_total << std::endl;
-
+  parse_md_tag(aux, haplotypes, positions); //total bases accounted in md tag
+  std::cout << aux << std::endl;                                                                                                                
+ 
   //this refers to the start position relative to the reference
+  //bool reverse = bam_is_rev(r);
   int abs_start_pos = r->core.pos;
-  int abs_end_pos  = bam_endpos(r);
-  amplicons.find_amplicon_per_read(abs_start_pos, abs_end_pos);
+  int abs_end_pos  = bam_endpos(r) - 1;
 
   //iterate through cigar ops for this read
   while(i < r->core.n_cigar){   
@@ -283,7 +297,7 @@ void iterate_reads(bam1_t *r, IntervalTree &amplicons){
     op = bam_cigar_op(cigar[i]); //cigar operation
     op_len = bam_cigar_oplen(cigar[i]); //cigar length
     start += op_len; //total positions iterated
-    std::cout << op << " " << op_len << std::endl; 
+                     
     //these are the only operations we care about
     if(op == 1){
       std::cout << op << " " << op_len << std::endl;
@@ -292,7 +306,13 @@ void iterate_reads(bam1_t *r, IntervalTree &amplicons){
     }
     i++;
   }
+  //places haplotype on amplicon node
+  amplicons.find_amplicon_per_read(abs_start_pos, abs_end_pos, haplotypes, positions);
+  //amplicons.print_amplicon_info();
+
 }
+
+
 
 //entry point for threshold determination
 void determine_threshold(std::string bam, std::string bed, std::string pair_info, int32_t primer_offset = 0){
@@ -310,9 +330,7 @@ void determine_threshold(std::string bam, std::string bed, std::string pair_info
   //populate primer, and primer pairs
   primers = populate_from_file(bed, primer_offset);
   amplicons = populate_amplicons(pair_info, primers);
-  //test line this prints the amplicons
-  //amplicons.inOrder();
-  
+ 
   samFile *in = hts_open(bam.c_str(), "r");
   hts_idx_t *idx = sam_index_load(in, bam.c_str());
   bam_hdr_t *header = sam_hdr_read(in);
@@ -329,17 +347,20 @@ void determine_threshold(std::string bam, std::string bed, std::string pair_info
   //this iterates over the reads and assigns them to an amplicon
   while(sam_itr_next(in, iter, aln) >= 0) {
     //pull out the relevant diff from reference
-    if (j < 100000){
+    if (j < 107000){
       j++;
       continue;
     }
     iterate_reads(aln, amplicons);
     j++;
-    if(j > 100010){
+    std::cout << j<< std::endl;
+    if(j > 107020){
       break;
     }
   }
-
-  //cry about how difficult this is 
+  
+  //extract those reads into a format useable in the clustering
+  //frequency_matrix = create_frequency_matrix(amplicons)
+  
 }
 

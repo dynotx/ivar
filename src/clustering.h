@@ -17,7 +17,16 @@
 #ifndef clustering
 #define clustering
 
-void k_means(int n_clusters);
+class cluster {
+  public:
+    int n_clusters;
+    float sil_score;
+    std::vector<float> sil_scores; //per sample                                       
+    
+};
+
+
+void k_means(int n_clusters, alglib::real_2d_array xy, cluster &cluster_results);
 float average(std::vector<float> x);
 std::vector<float> calculate_cluster_centers(alglib::real_2d_array X, alglib::kmeansreport rep, int n_clusters);
 float cluster_point_distances(alglib::real_2d_array X, alglib::kmeansreport rep, float point, float center, int n_clusters);
