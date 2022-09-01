@@ -81,6 +81,18 @@ void IntervalTree::inOrder(ITNode *root){
   inOrder(root->right);
 }
 
+//traverse the tree and find the amplicon the read belongs within
+void IntervalTree::find_amplicon_per_read(ITNode *root, int start, int end){
+  std::cout << "start " << start << " end " << end << std::endl;
+  return;
+  if (root == NULL) return;
+  inOrder(root->left);
+  cout << "[" << root->data->low << ", " << root->data->high << "]"
+       << " max = " << root->max << endl;
+  inOrder(root->right);
+}
+
+
 // A stand-alone function to create a tree containing the coordinates of each amplicon
 // based on user-specified primer pairs
 IntervalTree populate_amplicons(std::string pair_info_file, std::vector<primer> &primers){
@@ -89,14 +101,13 @@ IntervalTree populate_amplicons(std::string pair_info_file, std::vector<primer> 
   IntervalTree tree = IntervalTree();
   populate_pair_indices(primers, pair_info_file);
   for (auto & p : primers) {
-    if (p.get_strand() == '+')
-      {
-	if (p.get_pair_indice() != -1){
-	  amplicon_start = p.get_start();
-	  amplicon_end = primers[p.get_pair_indice()].get_end() + 1;
-	  tree.insert(Interval(amplicon_start, amplicon_end));
-	}
-      }
+    if (p.get_strand() == '+'){
+      if (p.get_pair_indice() != -1){
+	      amplicon_start = p.get_start();
+	      amplicon_end = primers[p.get_pair_indice()].get_end() + 1;
+	      tree.insert(Interval(amplicon_start, amplicon_end));
+	    }
+    }
   }
   return tree;
 }

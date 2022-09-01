@@ -40,12 +40,14 @@ private:
   void insert(ITNode *root, Interval data);
   bool envelopSearch(ITNode *root, Interval data);
   void inOrder(ITNode * root);
+  void find_amplicon_per_read(ITNode *root, int start, int end);
 
 public:
   IntervalTree();  // constructor
   void insert(Interval data){ insert(_root, data);}
   bool envelopSearch(Interval data){ return envelopSearch(_root, data);}
   void inOrder() {inOrder(_root);}
+  void find_amplicon_per_read(int start, int end){find_amplicon_per_read(_root, start, end);}
 };
 
 IntervalTree populate_amplicons(std::string pair_info_file, std::vector<primer> &primers);
