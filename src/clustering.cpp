@@ -266,6 +266,12 @@ void iterate_reads(bam1_t *r, IntervalTree &amplicons){
   std::cout << "\n";
   int md_total = parse_md_tag(aux, haplotypes, positions); //total bases accounted in md tag
   std::cout << "md total " << md_total << std::endl;
+
+  //this refers to the start position relative to the reference
+  int abs_start_pos = r->core.pos;
+  int abs_end_pos  = bam_endpos(r);
+  amplicons.find_amplicon_per_read(abs_start_pos, abs_end_pos);
+
   //iterate through cigar ops for this read
   while(i < r->core.n_cigar){   
     //std::cout << "\n"; 
@@ -286,8 +292,6 @@ void iterate_reads(bam1_t *r, IntervalTree &amplicons){
     }
     i++;
   }
-  
-  amplicons.inOrder();
 }
 
 //entry point for threshold determination
@@ -306,7 +310,9 @@ void determine_threshold(std::string bam, std::string bed, std::string pair_info
   //populate primer, and primer pairs
   primers = populate_from_file(bed, primer_offset);
   amplicons = populate_amplicons(pair_info, primers);
-  amplicons.inOrder();
+  //test line this prints the amplicons
+  //amplicons.inOrder();
+  
   samFile *in = hts_open(bam.c_str(), "r");
   hts_idx_t *idx = sam_index_load(in, bam.c_str());
   bam_hdr_t *header = sam_hdr_read(in);
@@ -323,9 +329,13 @@ void determine_threshold(std::string bam, std::string bed, std::string pair_info
   //this iterates over the reads and assigns them to an amplicon
   while(sam_itr_next(in, iter, aln) >= 0) {
     //pull out the relevant diff from reference
+    if (j < 100000){
+      j++;
+      continue;
+    }
     iterate_reads(aln, amplicons);
     j++;
-    if(j > 10){
+    if(j > 100010){
       break;
     }
   }
