@@ -114,7 +114,9 @@ void IntervalTree::find_amplicon_per_read(ITNode *root, int start, int end,
 void IntervalTree::print_amplicon_info(ITNode *root){
   if (root == NULL) return;
   //print position info
-  std::cout << "Read count: " << root->read_count <<std::endl;
+  if(root->read_count > 0){
+    std::cout << "Read count: " << root->read_count <<std::endl;
+  }
   for(std::vector<uint32_t> x:root->positions){
     std::cout << "haplotype position modified ";
     for(uint32_t t: x){
