@@ -110,7 +110,23 @@ void IntervalTree::find_amplicon_per_read(ITNode *root, int start, int end,
   }
 }
 
-//use this to print out haplotype and position information per amplicon
+
+//use this to iterate through the tree, returning each node
+ITNode* IntervalTree::iterate_nodes(ITNode *root){
+  /*
+   * @param root : node of the tree
+   *
+   * Function takes an IT node in and returns the haplotype
+   *
+   */
+  std::cout << "here" << std::endl;
+  if(root == NULL) return(root);
+  std::cout << root->read_count << std::endl;
+  return(root);
+  
+}
+
+//use this to print out haplotype and position information per amplicon meant for debugging
 void IntervalTree::print_amplicon_info(ITNode *root){
   if (root == NULL) return;
   //print position info
@@ -120,7 +136,7 @@ void IntervalTree::print_amplicon_info(ITNode *root){
   for(std::vector<uint32_t> x:root->positions){
     std::cout << "haplotype position modified ";
     for(uint32_t t: x){
-      std::cout << "pos " << t << " ";
+      std::cout << "pos " << t << std::endl;
     }
     std::cout << "\n";
   }

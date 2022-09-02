@@ -302,14 +302,14 @@ void iterate_reads(bam1_t *r, IntervalTree &amplicons){
   //these will later be place in the amplicon object
   std::vector<int> haplotypes;
   std::vector<uint32_t> positions;
-  std::cout << "\n";
   parse_md_tag(aux, haplotypes, positions, abs_start_pos); //total bases accounted in md tag
-  std::cout << aux << std::endl;                                                                                                                
- 
+
   int insertion_pos = 0;
-  std::cout << "abs start " << abs_start_pos << " abs end " << abs_end_pos << std::endl;
+
+  //test lines
+  //std::cout << "abs start " << abs_start_pos << " abs end " << abs_end_pos << std::endl;
   //remember 0 is false in c++
-  std::cout << "reverse " << reverse << std::endl;
+  //std::cout << "reverse " << reverse << std::endl;
 
   //iterate through cigar ops for this read
   while(i < r->core.n_cigar){   
@@ -317,7 +317,7 @@ void iterate_reads(bam1_t *r, IntervalTree &amplicons){
     op_len = bam_cigar_oplen(cigar[i]); //cigar length
     
     //test line
-    std::cout << op << " " << op_len << std::endl;
+    //std::cout << op << " " << op_len << std::endl;
     
     //these are the only operations we care about
     if(op == 1){
@@ -331,8 +331,9 @@ void iterate_reads(bam1_t *r, IntervalTree &amplicons){
       for(uint32_t x = 0; x < op_len; x++){
         //the nucelotide at the insertion poi
         char nt = seq_nt16_str[bam_seqi(seq, start+x)];
+        //in this process, the positions are not longer in numeric order
         haplotypes.push_back(encoded_nucs(nt));
-        positions.push_back(start+x);
+        positions.push_back(abs_start_pos+start+x);
       }
     }
 
@@ -348,7 +349,17 @@ void iterate_reads(bam1_t *r, IntervalTree &amplicons){
 
 }
 
+void create_frequency_matrix(IntervalTree &amplicons){
+  /*
+   * @params amplicons : data strucuture containing read count, haplotype nt, and positions
+   *
+   * Function calculates the frequency of unique haplotypes on a per amplicon basis.
+   */
 
+  std::cout << "In create frequency function." << std::endl;
+  ITNode *node = amplicons.iterate_nodes(); 
+  std::cout << "freq node " << node->read_count << std::endl;
+}
 
 //entry point for threshold determination
 void determine_threshold(std::string bam, std::string bed, std::string pair_info, int32_t primer_offset = 0){
@@ -377,26 +388,16 @@ void determine_threshold(std::string bam, std::string bed, std::string pair_info
   region_.assign(header->target_name[0]);
   
   iter  = sam_itr_querys(idx, header, region_.c_str());
-  //test variable
-  int j = 0;
 
   //this iterates over the reads and assigns them to an amplicon
   while(sam_itr_next(in, iter, aln) >= 0) {
     //pull out the relevant diff from reference
-    if (j < 107680){
-      j++;
-      continue;
-    }
     iterate_reads(aln, amplicons);
-    j++;
-    std::cout << j<< std::endl;
-    if(j > 107686){
-      break;
-    }
   }
+
   
   //extract those reads into a format useable in the clustering
-  //frequency_matrix = create_frequency_matrix(amplicons)
+  create_frequency_matrix(amplicons);
   
 }
 
