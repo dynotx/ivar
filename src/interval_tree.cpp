@@ -83,7 +83,7 @@ void IntervalTree::inOrder(ITNode *root){
 
 //traverse the tree and find the amplicon the read belongs within
 void IntervalTree::find_amplicon_per_read(ITNode *root, int start, int end, 
-    std::vector<int> haplotypes, std::vector<int> positions){
+    std::vector<int> haplotypes, std::vector<uint32_t> positions){
   /*
    * @param root : IT node obj
    * @param start : left-most position of read
@@ -96,9 +96,9 @@ void IntervalTree::find_amplicon_per_read(ITNode *root, int start, int end,
   if (root == NULL) return;
  
   if ((start >= root->data->low) && (end <= root->data->high)){
-    std::cout << root->data->low << " " << root->data->high << std::endl;
+    //std::cout << root->data->low << " " << root->data->high << std::endl;
     //push the haplotype and positions to the node if we have any
-    if(haplotypes.size() > 0 && positions.size() > 0){
+    if(haplotypes.size() > 1 && positions.size() > 1){
       root->haplotypes.push_back(haplotypes);
       root->positions.push_back(positions);
     }
@@ -114,10 +114,11 @@ void IntervalTree::find_amplicon_per_read(ITNode *root, int start, int end,
 void IntervalTree::print_amplicon_info(ITNode *root){
   if (root == NULL) return;
   //print position info
-  for(std::vector<int> x:root->positions){
-    std::cout << "haplotype ";
-    for(int t: x){
-      std::cout << t << " ";
+  std::cout << "Read count: " << root->read_count <<std::endl;
+  for(std::vector<uint32_t> x:root->positions){
+    std::cout << "haplotype position modified ";
+    for(uint32_t t: x){
+      std::cout << "pos " << t << " ";
     }
     std::cout << "\n";
   }

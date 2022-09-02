@@ -16,6 +16,18 @@
 #include "clustering.h"
 using namespace alglib;
 
+//print the cluster infor
+void print_cluster_info(cluster cluster_results){
+  /*
+   * @param cluster_results : the cluster object containing clustering stats
+   */
+  std::cout << "N Clusters: " << cluster_results.n_clusters << std::endl;
+  std::cout << "Sil Score: " << cluster_results.sil_score << std::endl;
+  for(float x: cluster_results.centers){
+    std::cout << "center @: " << x << std::endl;
+  }
+}
+
 //get the average of a vector
 float average(std::vector<float> x){
   float sumTotal = 0;
@@ -51,11 +63,13 @@ int encoded_nucs(char &tmp){
   return(encoded_nuc);
 }
 
-void parse_md_tag(uint8_t *aux, std::vector<int> &haplotypes, std::vector<int> &positions){
+void parse_md_tag(uint8_t *aux, std::vector<int> &haplotypes, std::vector<uint32_t> &positions,
+    int abs_start_pos){
   /*
    * @param aux : the md tag
    * @param haplotypes : vector with encoded nuc haplotypes
    * @param positions : the positions of sub,ins, and dels that make the haplotype
+   * @params abs_start_pos : the start position relative to the reference
    *
    * Parse the MD tag, populating the haplotypes and positions of the amplicon with
    * substitutions.
@@ -64,12 +78,12 @@ void parse_md_tag(uint8_t *aux, std::vector<int> &haplotypes, std::vector<int> &
    */
   
   //std::cout << "aux " << aux << std::endl;
-  int total = 0; //the total num bases accounted for in the MD tag, any less than cigar means insertion
+  uint32_t total = 0; //the total num bases accounted for in the MD tag, any less than cigar means insertion
   bool last_digit = false; //helping to track total nums
   bool deletion = true;
   std::string digits; //helping to track number operations 
   std::string deletion_nucs; 
-
+  uint32_t a = 0;
   //length of this is random
   for(int i = 1; i < 100; i++){
     char tmp = aux[i];
@@ -77,7 +91,7 @@ void parse_md_tag(uint8_t *aux, std::vector<int> &haplotypes, std::vector<int> &
     if(tmp == '\0'){
       //this makes sure if we end with a number it gets accounts for 
       if(last_digit){
-        int a = std::stoi(digits);
+        a = std::stoi(digits);
         total += a;
         last_digit = false;
         digits.clear();
@@ -87,7 +101,7 @@ void parse_md_tag(uint8_t *aux, std::vector<int> &haplotypes, std::vector<int> &
     if(isdigit(tmp)){ //on digit character
       if(deletion){
         deletion = false;
-        positions.push_back(total);
+        positions.push_back(abs_start_pos + total);
         char del = 'D';
         haplotypes.push_back(encoded_nucs(del)); //this needs to be generalize to encode deletions that aren't a single NT
         deletion_nucs.clear();
@@ -101,12 +115,12 @@ void parse_md_tag(uint8_t *aux, std::vector<int> &haplotypes, std::vector<int> &
         continue;
       }
       if(last_digit){
-        int a = std::stoi(digits);
+        a = std::stoi(digits);
         total += a;
         last_digit = false;
         digits.clear();
       }
-      positions.push_back(total);
+      positions.push_back(abs_start_pos + total);
       haplotypes.push_back(encoded_nucs(tmp));
       total += 1;
     }else if (tmp == '^'){
@@ -116,7 +130,7 @@ void parse_md_tag(uint8_t *aux, std::vector<int> &haplotypes, std::vector<int> &
 }
 
 //calculate the cluster centers
-std::vector<float> calculate_cluster_centers(alglib::real_2d_array X, alglib::kmeansreport rep, int n_clusters){
+void calculate_cluster_centers(alglib::real_2d_array X, alglib::kmeansreport rep, int n_clusters, cluster &cluster_results){
   /*
    * @params X : array containing all data points
    * @params rep : kmeans reporter object  
@@ -138,7 +152,7 @@ std::vector<float> calculate_cluster_centers(alglib::real_2d_array X, alglib::km
     centers.push_back(summation[k][0]/summation[k][1]); 
     //std::cout << "center " << k << " is " << summation[k][0]/summation[k][1] << std::endl;
   }
-  return(centers);
+  cluster_results.centers = centers;
 }
 
 //support function for sil score
@@ -188,22 +202,25 @@ void calculate_sil_score(alglib::real_2d_array X, alglib::kmeansreport rep,
   /*
   * @params X : array containing data points
   * @params rep : kmeans reported object
-  * @returns sil_scores : all sil scores for all points
+  * @params n_clusters : the number of clusters
+  * @params cluster_results : the object for storing clustering metrics
+  *
+  * Calculate the silohuette score for each sample, and then average them
+  * together to find the cumulative score.
+  * (b - a) / max(a, b) sil score formula
   */
   //std::cout << "Calculating silohuette score." << std::endl;
   int rows = X.rows();
-  //int cols = X.cols();
   float point = 0;
   float center = 0;
   std::vector<float> sil_scores;
   float tmp = 0;
+
   for (int i = 0; i < rows; i++) {
     point = X[i][0];
     center = rep.cidx[i];
     tmp = cluster_point_distances(X, rep, point, center, n_clusters);
     sil_scores.push_back(tmp);
-    //(b - a) / max(a, b) sil score formula 
-    //std::cout << "i " << i << " point " << point << " center " << center << " sil " << tmp << std::endl;     
   }
 
   //store the cumulative results
@@ -240,14 +257,14 @@ void k_means(int n_clusters, alglib::real_2d_array xy, cluster &cluster_results)
     exit(1);
   }
 
-  int i = 0;
-  while(i < n_clusters){
+  //int i = 0;
+  /*while(i < n_clusters){
     std::cout << "center "<< i << " "  << rep.c[i][0] << " " << rep.c[i][1] << std::endl;
     i++;
-  }
+  }*/
  
   calculate_sil_score(xy, rep, n_clusters, cluster_results);
-  calculate_cluster_centers(xy, rep, n_clusters);
+  calculate_cluster_centers(xy, rep, n_clusters, cluster_results);
 }
 
 void iterate_reads(bam1_t *r, IntervalTree &amplicons){
@@ -277,36 +294,52 @@ void iterate_reads(bam1_t *r, IntervalTree &amplicons){
  
   //temp variable to count positions
   int start = 0;
-  //these need to be tied to the amplicon object
+  //this refers to the start position relative to the reference
+  bool reverse = bam_is_rev(r);
+  int abs_start_pos = r->core.pos; //leftmost coordinate on ref
+  int abs_end_pos  = bam_endpos(r) - 1; //rightmost coordinate on ref
+
+  //these will later be place in the amplicon object
   std::vector<int> haplotypes;
-  std::vector<int> positions;
+  std::vector<uint32_t> positions;
   std::cout << "\n";
-  parse_md_tag(aux, haplotypes, positions); //total bases accounted in md tag
+  parse_md_tag(aux, haplotypes, positions, abs_start_pos); //total bases accounted in md tag
   std::cout << aux << std::endl;                                                                                                                
  
-  //this refers to the start position relative to the reference
-  //bool reverse = bam_is_rev(r);
-  int abs_start_pos = r->core.pos;
-  int abs_end_pos  = bam_endpos(r) - 1;
+  int insertion_pos = 0;
+  std::cout << "abs start " << abs_start_pos << " abs end " << abs_end_pos << std::endl;
+  //remember 0 is false in c++
+  std::cout << "reverse " << reverse << std::endl;
 
   //iterate through cigar ops for this read
   while(i < r->core.n_cigar){   
-    //std::cout << "\n"; 
-    //gives us the left mose mapping position comnsimes the reference, sc doesnt consume ref
-    //assign this read to an amplicon
-    //std::cout << "pos " << r->core.pos << std::endl;
-    //std::cout << "end pos " << bam_endpos(r) << std::endl;
-
     op = bam_cigar_op(cigar[i]); //cigar operation
     op_len = bam_cigar_oplen(cigar[i]); //cigar length
-    start += op_len; //total positions iterated
-                     
+    
+    //test line
+    std::cout << op << " " << op_len << std::endl;
+    
     //these are the only operations we care about
     if(op == 1){
-      std::cout << op << " " << op_len << std::endl;
+      if(reverse){
+        insertion_pos = abs_end_pos - start;
+      } else {
+        insertion_pos = abs_start_pos + start;
+      }
       std::cout << aux << std::endl;
-      std::cout << "bam seq i " << bam_seqi(seq, 22) << std::endl; 
+      //go get each nt in the insertion region
+      for(uint32_t x = 0; x < op_len; x++){
+        //the nucelotide at the insertion poi
+        char nt = seq_nt16_str[bam_seqi(seq, start+x)];
+        haplotypes.push_back(encoded_nucs(nt));
+        positions.push_back(start+x);
+      }
     }
+
+    if (bam_cigar_type(op) & 2){
+      start += op_len; //total positions iterated relation to ref
+    }
+                   
     i++;
   }
   //places haplotype on amplicon node
@@ -350,14 +383,14 @@ void determine_threshold(std::string bam, std::string bed, std::string pair_info
   //this iterates over the reads and assigns them to an amplicon
   while(sam_itr_next(in, iter, aln) >= 0) {
     //pull out the relevant diff from reference
-    if (j < 107000){
+    if (j < 107680){
       j++;
       continue;
     }
     iterate_reads(aln, amplicons);
     j++;
     std::cout << j<< std::endl;
-    if(j > 107020){
+    if(j > 107686){
       break;
     }
   }

@@ -30,7 +30,7 @@ public:
   ITNode *left, *right; // pointer to node's left & right child node objects
   int max;
   std::vector<std::vector<int>> haplotypes;
-  std::vector<std::vector<int>> positions;
+  std::vector<std::vector<uint32_t>> positions;
   int read_count=0;
 
 };
@@ -45,7 +45,7 @@ private:
   bool envelopSearch(ITNode *root, Interval data);
   void inOrder(ITNode * root);
   void print_amplicon_info(ITNode *root);
-  void find_amplicon_per_read(ITNode *root, int start, int end, std::vector<int> haplotypes, std::vector<int> positions);
+  void find_amplicon_per_read(ITNode *root, int start, int end, std::vector<int> haplotypes, std::vector<uint32_t> positions);
 
 public:
   IntervalTree();  // constructor
@@ -53,7 +53,7 @@ public:
   bool envelopSearch(Interval data){ return envelopSearch(_root, data);}
   void inOrder() {inOrder(_root);}
   void print_amplicon_info() {print_amplicon_info(_root);}
-  void find_amplicon_per_read(int start, int end, std::vector<int> haplotypes, std::vector<int> positions){find_amplicon_per_read(_root, start, end, haplotypes, positions);}
+  void find_amplicon_per_read(int start, int end, std::vector<int> haplotypes, std::vector<uint32_t> positions){find_amplicon_per_read(_root, start, end, haplotypes, positions);}
 };
 
 IntervalTree populate_amplicons(std::string pair_info_file, std::vector<primer> &primers);
