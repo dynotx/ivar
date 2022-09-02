@@ -356,9 +356,13 @@ void create_frequency_matrix(IntervalTree &amplicons){
    * Function calculates the frequency of unique haplotypes on a per amplicon basis.
    */
 
-  std::cout << "In create frequency function." << std::endl;
-  ITNode *node = amplicons.iterate_nodes(); 
-  std::cout << "freq node " << node->read_count << std::endl;
+  ITNode *node = amplicons.iterate_nodes();
+  int read_count=0; //total reads in amplicon
+  
+  while(node != NULL){
+    read_count = node->read_count;
+    node = amplicons.iterate_nodes(node->right);
+  }
 }
 
 //entry point for threshold determination

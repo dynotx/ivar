@@ -44,7 +44,6 @@ private:
   bool envelopSearch(ITNode *root, Interval data);
   void inOrder(ITNode * root); //prints amplicons starts and ends
   void print_amplicon_info(ITNode *root); //prints haplotypes and positions
-  ITNode *iterate_nodes(ITNode *root); //used to returns nodes iteratively
   void find_amplicon_per_read(ITNode *root, int start, int end, std::vector<int> haplotypes, std::vector<uint32_t> positions); //places read info in amplicon
 
 public:
@@ -53,6 +52,7 @@ public:
   bool envelopSearch(Interval data){ return envelopSearch(_root, data);}
   void inOrder() {inOrder(_root);}
   void print_amplicon_info() {print_amplicon_info(_root);}
+  ITNode *iterate_nodes(ITNode *root); //used to returns nodes iteratively
   ITNode *iterate_nodes(){return iterate_nodes(_root);}
   void find_amplicon_per_read(int start, int end, std::vector<int> haplotypes, std::vector<uint32_t> positions){find_amplicon_per_read(_root, start, end, haplotypes, positions);}
 };

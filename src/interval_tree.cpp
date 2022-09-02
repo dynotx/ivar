@@ -116,14 +116,10 @@ ITNode* IntervalTree::iterate_nodes(ITNode *root){
   /*
    * @param root : node of the tree
    *
-   * Function takes an IT node in and returns the haplotype
-   *
+   * Function takes an IT node and returns it, much like a get function.
    */
-  std::cout << "here" << std::endl;
   if(root == NULL) return(root);
-  std::cout << root->read_count << std::endl;
   return(root);
-  
 }
 
 //use this to print out haplotype and position information per amplicon meant for debugging
