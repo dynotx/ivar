@@ -83,31 +83,42 @@ void IntervalTree::inOrder(ITNode *root){
 
 //traverse the tree and find the amplicon the read belongs within
 void IntervalTree::find_amplicon_per_read(ITNode *root, int start, int end, 
-    std::vector<int> haplotypes, std::vector<uint32_t> positions){
+    std::vector<int> haplotypes, std::vector<uint32_t> positions, bool reverse){
   /*
    * @param root : IT node obj
    * @param start : left-most position of read
    * @param end : right-most position of read
+   * @param haplotypes : the haplotypes (NT) to be placed on an amplicon
+   * @param positions : the positons that go with the haplotypes 
+   * @param reverse : whether or not a read is reversed
    *
    * Takes in an interval tree, and a read start and end pos and adds 
    * the haplotype, positions, and frequnecies to to internval tree object.
    * Not all reads get used, only if they fall entirely within an amplicon.
    */
   if (root == NULL) return;
- 
-  if ((start >= root->data->low) && (end <= root->data->high)){
-    //std::cout << root->data->low << " " << root->data->high << std::endl;
-    //push the haplotype and positions to the node if we have any
-    if(haplotypes.size() > 1 && positions.size() > 1){
-      root->haplotypes.push_back(haplotypes);
-      root->positions.push_back(positions);
+  std::cout << root->data->low << " " << root->data->low_inner << " " << root->data->high_inner << " " << root->data->high << std::endl;
+  if(reverse){
+    if(end - 10 < root->data->high < end + 10){
+      if(haplotypes.size() > 1 && positions.size() > 1){
+        root->haplotypes.push_back(haplotypes);
+        root->positions.push_back(positions);
+        root->read_count += 1;
+        return;
+     }
     }
-    //always increment the read count, even if the read macthes the ref perfectly
-    root->read_count += 1;
-    return;
   }else{
-   find_amplicon_per_read(root->right, start, end, haplotypes, positions);
+    if(start -10 < root->data->low < start +10){
+       if(haplotypes.size() > 1 && positions.size() > 1){
+        root->haplotypes.push_back(haplotypes);
+        root->positions.push_back(positions);
+        //always increment the read count, even if the read macthes the ref perfectly
+        root->read_count += 1;
+        return;
+    }
+   }
   }
+  find_amplicon_per_read(root->right, start, end, haplotypes, positions, reverse);
 }
 
 
@@ -145,6 +156,9 @@ void IntervalTree::print_amplicon_info(ITNode *root){
 IntervalTree populate_amplicons(std::string pair_info_file, std::vector<primer> &primers){
   int amplicon_start = -1;
   int amplicon_end = -1;
+  int amplicon_start_inner = -1;
+  int amplicon_end_inner = -1;
+
   IntervalTree tree = IntervalTree();
   populate_pair_indices(primers, pair_info_file);
   for (auto & p : primers) {
@@ -152,7 +166,9 @@ IntervalTree populate_amplicons(std::string pair_info_file, std::vector<primer> 
       if (p.get_pair_indice() != -1){
 	      amplicon_start = p.get_start();
 	      amplicon_end = primers[p.get_pair_indice()].get_end() + 1;
-	      tree.insert(Interval(amplicon_start, amplicon_end));
+        amplicon_start_inner = p.get_end() +1;
+        amplicon_end_inner = primers[p.get_pair_indice()].get_start();
+	      tree.insert(Interval(amplicon_start, amplicon_end, amplicon_start_inner, amplicon_end_inner));
 	    }
     }
   }

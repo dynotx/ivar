@@ -474,7 +474,7 @@ int get_bigger_primer(std::vector<primer> primers){
 
 // check if read is enveloped by any of the amplicons
 bool amplicon_filter(IntervalTree amplicons, bam1_t* r){
-  Interval fragment_coords = Interval(0, 1);
+  Interval fragment_coords = Interval(0, 1, 0, 1);
   if(r->core.isize > 0){
     fragment_coords.low = r->core.pos;
     fragment_coords.high = r->core.pos + r->core.isize;

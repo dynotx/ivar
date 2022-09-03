@@ -22,7 +22,7 @@ int test_itree_overlap(IntervalTree tree, Interval queries[], int num_tests, boo
 int main()
 {
     int result = 0;
-    Interval ints[6] = {Interval(15, 20), Interval(30, 10), Interval(17, 19), Interval(5, 20), Interval(12, 15), Interval(30, 40)};
+    Interval ints[6] = {Interval(15, 20,0,0), Interval(30, 10,0,0), Interval(17, 19,0,0), Interval(5, 20,0,0), Interval(12, 15,0,0), Interval(30, 40,0,0)};
     int n = sizeof(ints) / sizeof(ints[0]);
     IntervalTree tree = IntervalTree();
     // populate interval tree
@@ -33,7 +33,7 @@ int main()
     std::cout << "In order traversal of Interval Tree:" << std::endl;
     tree.inOrder();
 
-    Interval queries[4] = {Interval(15, 20), Interval(9, 30), Interval(31, 38), Interval(7, 22)};
+    Interval queries[4] = {Interval(15, 20,0,0), Interval(9, 30,0,0), Interval(31, 38,0,0), Interval(7, 22,0,0)};
     bool expected[4] = {true, false, true, false};
     int num_tests = sizeof(queries) / sizeof(queries[0]);
     result = test_itree_overlap(tree, queries, num_tests, expected);
