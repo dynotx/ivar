@@ -97,9 +97,9 @@ void IntervalTree::find_amplicon_per_read(ITNode *root, int start, int end,
    * Not all reads get used, only if they fall entirely within an amplicon.
    */
   if (root == NULL) return;
-  std::cout << root->data->low << " " << root->data->low_inner << " " << root->data->high_inner << " " << root->data->high << std::endl;
+  //yes karthik, I know this is poorly written
   if(reverse){
-    if(end - 10 < root->data->high < end + 10){
+    if((end - 10 < root->data->high_inner) && (root->data->high_inner < end + 10)){
       if(haplotypes.size() > 1 && positions.size() > 1){
         root->haplotypes.push_back(haplotypes);
         root->positions.push_back(positions);
@@ -108,14 +108,14 @@ void IntervalTree::find_amplicon_per_read(ITNode *root, int start, int end,
      }
     }
   }else{
-    if(start -10 < root->data->low < start +10){
+    if((start -10 < root->data->low_inner) && (root->data->low_inner < start +10)){
        if(haplotypes.size() > 1 && positions.size() > 1){
         root->haplotypes.push_back(haplotypes);
         root->positions.push_back(positions);
         //always increment the read count, even if the read macthes the ref perfectly
         root->read_count += 1;
         return;
-    }
+      }
    }
   }
   find_amplicon_per_read(root->right, start, end, haplotypes, positions, reverse);
