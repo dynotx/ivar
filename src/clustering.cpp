@@ -345,7 +345,7 @@ void iterate_reads(bam1_t *r, IntervalTree &amplicons){
   }
   //places haplotype on amplicon node
   amplicons.find_amplicon_per_read(abs_start_pos, abs_end_pos, haplotypes, positions);
-  //amplicons.print_amplicon_info();
+  amplicons.print_amplicon_info();
 
 }
 
@@ -355,14 +355,64 @@ void create_frequency_matrix(IntervalTree &amplicons){
    *
    * Function calculates the frequency of unique haplotypes on a per amplicon basis.
    */
-
   ITNode *node = amplicons.iterate_nodes();
   int read_count=0; //total reads in amplicon
-  
+  std::vector<std::vector<uint32_t>> positions;
+  std::vector<std::vector<int>> haplotypes;
+  std::vector<uint32_t> position;
+  std::vector<int> haplotype;
+
+  std::vector<float> unique_counts;
+  std::vector<std::vector<uint32_t>> unique_positions;
+  std::vector<std::vector<int>> unique_haplotypes;
+
   while(node != NULL){
-    read_count = node->read_count;
     node = amplicons.iterate_nodes(node->right);
-  }
+    if(node == NULL){
+      break;
+    }
+    read_count = node->read_count;
+    positions = node->positions;
+    haplotypes = node->haplotypes;
+    int length = positions.size(); //total
+
+    //loop through all the haplotypes in the amplicon and find unqiue ones
+    for(int i=0; i < length; i++){
+      position = positions[i];
+      haplotype = haplotypes[i];
+       
+      //check if we've seen this haplotype
+      auto it = std::find(unique_positions.begin(), unique_positions.end(), position);
+      if(it != unique_positions.end()) {
+        int index = it - unique_positions.begin();
+        
+        //make sure the nucleotides at these positions alos match
+        if(unique_haplotypes[index] == haplotype){
+          unique_counts[index] += 1;
+        }else{
+          unique_positions.push_back(position);
+          unique_haplotypes.push_back(haplotype);
+          unique_counts.push_back(1);
+        }
+      }else { //add it to the unique haplotypes
+        unique_positions.push_back(position);
+        unique_haplotypes.push_back(haplotype);
+        unique_counts.push_back(1);
+      }
+    }
+    for(float y:unique_counts){
+      std::cout << y / read_count << std::endl;
+    }
+    for(std::vector<uint32_t> f:unique_positions){
+      for(uint32_t r:f){
+        std::cout << r << ",";
+      }
+      std::cout << "\n";
+    }
+    unique_haplotypes.clear();
+    unique_positions.clear();
+    unique_counts.clear();
+   }
 }
 
 //entry point for threshold determination
@@ -401,7 +451,7 @@ void determine_threshold(std::string bam, std::string bed, std::string pair_info
 
   
   //extract those reads into a format useable in the clustering
-  create_frequency_matrix(amplicons);
+  //create_frequency_matrix(amplicons);
   
 }
 
