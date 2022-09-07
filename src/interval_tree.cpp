@@ -139,20 +139,24 @@ ITNode* IntervalTree::iterate_nodes(ITNode *root){
 //use this to print out summayr of unique haplotypes and frequencies
 void IntervalTree::print_amplicon_summary(ITNode *root){
   if (root == NULL) return;
-  if (root->read_count != 0){
+  if ((root->read_count != 0) && (root->final_positions.size() > 0)){
+    std::cout << "\n Low:" << root->data->low << " High: " << root->data->high << std::endl;
     //print position info
     for(uint32_t x:root->final_positions){
         std::cout << x << ", ";
     }
-      std::cout << "\n";
-    
+    std::cout << "\n";  
+    for(float i:root->frequency){
+      std::cout << i << ", ";
+    }
+    std::cout << "\n";
     //print haplotype info
-    for(uint32_t i = 0; i < root->frequency.size(); i++){
+    /*for(uint32_t i = 0; i < root->frequency.size(); i++){
       for(int hap:root->final_haplotypes[i]){
         std::cout << hap << ", ";
       }
       std::cout << root->frequency[i] << std::endl;
-    }
+    }*/
   }
   print_amplicon_summary(root->right);
 }
