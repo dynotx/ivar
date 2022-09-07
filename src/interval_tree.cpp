@@ -101,7 +101,7 @@ void IntervalTree::find_amplicon_per_read(ITNode *root, int start, int end,
   //yes karthik, I know this is poorly written
   if(reverse){
     if((end - 10 < root->data->high_inner) && (root->data->high_inner < end + 10)){
-      //if(haplotypes.size() > 1 && positions.size() > 1){
+     //if(haplotypes.size() > 0 && positions.size() > 0){
         root->haplotypes.push_back(haplotypes);
         root->positions.push_back(positions);
         root->ranges.push_back(range);
@@ -111,6 +111,8 @@ void IntervalTree::find_amplicon_per_read(ITNode *root, int start, int end,
     }
   }else{
     if((start -10 < root->data->low_inner) && (root->data->low_inner < start +10)){
+       //std::cout << "Low: " << root->data->low_inner << " High: " << root->data->high_inner << std::endl;
+       //std::cout << "Start: " << start << " End: " << end << "\n" << std::endl;
        //if(haplotypes.size() > 1 && positions.size() > 1){
         root->haplotypes.push_back(haplotypes);
         root->positions.push_back(positions);
@@ -140,7 +142,7 @@ ITNode* IntervalTree::iterate_nodes(ITNode *root){
 void IntervalTree::print_amplicon_summary(ITNode *root){
   if (root == NULL) return;
   if ((root->read_count != 0) && (root->final_positions.size() > 0)){
-    std::cout << "\n Low:" << root->data->low << " High: " << root->data->high << std::endl;
+    std::cout << "\nLow:" << root->data->low << " High: " << root->data->high << std::endl;
     //print position info
     for(uint32_t x:root->final_positions){
         std::cout << x << ", ";
@@ -151,12 +153,12 @@ void IntervalTree::print_amplicon_summary(ITNode *root){
     }
     std::cout << "\n";
     //print haplotype info
-    /*for(uint32_t i = 0; i < root->frequency.size(); i++){
-      for(int hap:root->final_haplotypes[i]){
-        std::cout << hap << ", ";
+    for(std::vector<int> hap:root->final_haplotypes){
+      for(int h:hap){
+        std::cout << h << ", ";
       }
-      std::cout << root->frequency[i] << std::endl;
-    }*/
+      std::cout << "\n";
+    }
   }
   print_amplicon_summary(root->right);
 }
