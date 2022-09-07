@@ -5,6 +5,7 @@
 #include <fstream>
 #include <unistd.h>
 #include <stdint.h>
+#include <algorithm>
 #include <string.h>
 #include <sstream>
 #include <vector>
@@ -15,6 +16,83 @@
 #include "stdafx.h"
 #include "clustering.h"
 using namespace alglib;
+
+std::vector<std::vector<uint32_t>> transpose(const std::vector<std::vector<uint32_t>> data) {
+  // this assumes that all inner vectors have the same size and
+  // allocates space for the complete result in advance
+  std::vector<std::vector<uint32_t>> result(data[0].size(),
+                                        std::vector<uint32_t>(data.size()));
+  for (std::vector<uint32_t>::size_type i = 0; i < data[0].size(); i++) 
+      for (std::vector<uint32_t>::size_type j = 0; j < data.size(); j++) {
+          result[i][j] = data[j][i];
+      }
+  return result;
+}
+
+
+std::vector<std::vector<int>> transpose(const std::vector<std::vector<int>> data) {
+  // this assumes that all inner vectors have the same size and
+  // allocates space for the complete result in advance
+  std::vector<std::vector<int> > result(data[0].size(),
+                                        std::vector<int>(data.size()));
+  for (std::vector<int>::size_type i = 0; i < data[0].size(); i++) 
+      for (std::vector<int>::size_type j = 0; j < data.size(); j++) {
+          result[i][j] = data[j][i];
+      }
+  return result;
+}
+
+std::vector<uint32_t> flatten(std::vector<std::vector<uint32_t>> const &vec)
+{
+    std::vector<uint32_t> flattened;
+    for (auto const &v: vec) {
+        flattened.insert(flattened.end(), v.begin(), v.end());
+    }
+    return flattened;
+}
+
+void zip(
+    const std::vector<int> &haplotypes, 
+    const std::vector<uint32_t> &positions, 
+    std::vector<std::pair<uint32_t,int>> &zipped)
+{
+    for(size_t i=0; i< positions.size(); ++i)
+    {
+        zipped.push_back(std::make_pair(positions[i], haplotypes[i]));
+    }
+}
+
+void unzip(
+    const std::vector<std::pair<uint32_t, int>> &zipped, 
+    std::vector<int> &haplotypes, 
+    std::vector<uint32_t> &positions)
+{
+    for(size_t i=0; i<positions.size(); i++)
+    {
+        positions[i] = zipped[i].first;
+        haplotypes[i] = zipped[i].second;
+    }
+}
+
+void reorder_haplotypes(std::vector<int> &haplotypes, std::vector<uint32_t> &positions){
+  /*
+   * @param haplotypes : the hapltyope encoded nts
+   * @param positions : the position relative to the reference
+   *
+   * Function reorders both vectors so that the positions are in relative order.
+   */
+
+    // Zip the vectors together
+    std::vector<std::pair<std::uint32_t ,int>> zipped;
+    zip(haplotypes, positions, zipped);
+
+    // Sort the vector of pairs
+    std::sort(std::begin(zipped), std::end(zipped));
+
+    // Write the sorted pairs back to the original vectors
+    unzip(zipped, haplotypes, positions);
+
+}
 
 //print the cluster infor
 void print_cluster_info(cluster cluster_results){
@@ -37,39 +115,43 @@ float average(std::vector<float> x){
   return(sumTotal / x.size());
 }
 
-int encoded_nucs(char &tmp){
+int encoded_nucs(std::string &tmp){
   /*
    * @param tmp : nucleotide to encode
    * @return encoded_nuc : nucleotide encoded as an int
    *
    * Encoded the char passed using the following system:
-   * A:0, C:1, G:2, T:4, D:5, I:6
+   * A:0, C:1, G:2, T:3, D:4, I:5, S:6
    */
   int encoded_nuc = -1;
   
-  if (tmp == 'A') {
+  if (tmp == "A") {
     encoded_nuc = 0;
-  }else if(tmp == 'C'){
+  }else if(tmp == "C"){
     encoded_nuc = 1;
-  }else if (tmp == 'G'){
+  }else if (tmp == "G"){
     encoded_nuc = 2;
-  }else if(tmp == 'T'){
+  }else if(tmp == "T"){
     encoded_nuc = 3;
-  }else if(tmp == 'D'){
+  }else if(tmp == "D"){
     encoded_nuc = 4;
-  }else if(tmp == 'I'){
+  }else if(tmp == "I"){
     encoded_nuc = 5;
+  }else if(tmp == "S"){
+    encoded_nuc = 6;
   }
   return(encoded_nuc);
 }
 
+
 void parse_md_tag(uint8_t *aux, std::vector<int> &haplotypes, std::vector<uint32_t> &positions,
-    int abs_start_pos){
+    int abs_start_pos, std::vector<uint32_t> ignore_positions, bool reverse){
   /*
    * @param aux : the md tag
    * @param haplotypes : vector with encoded nuc haplotypes
    * @param positions : the positions of sub,ins, and dels that make the haplotype
-   * @params abs_start_pos : the start position relative to the reference
+   * @param abs_start_pos : the start position relative to the reference (is actually abs_end_pos) if reverse
+   * @param reverse : whether this is a reverse read or not
    *
    * Parse the MD tag, populating the haplotypes and positions of the amplicon with
    * substitutions.
@@ -78,55 +160,89 @@ void parse_md_tag(uint8_t *aux, std::vector<int> &haplotypes, std::vector<uint32
    */
   
   //std::cout << "aux " << aux << std::endl;
-  uint32_t total = 0; //the total num bases accounted for in the MD tag, any less than cigar means insertion
-  bool last_digit = false; //helping to track total nums
-  bool deletion = true;
+  bool deletion = false; //helping track the deletions
   std::string digits; //helping to track number operations 
-  std::string deletion_nucs; 
-  uint32_t a = 0;
-  //length of this is random
-  for(int i = 1; i < 100; i++){
-    char tmp = aux[i];
-    //if we reach the end of the unsigned char we stop iterating
-    if(tmp == '\0'){
-      //this makes sure if we end with a number it gets accounts for 
-      if(last_digit){
-        a = std::stoi(digits);
-        total += a;
-        last_digit = false;
-        digits.clear();
-      }
-      break;
-    }
+  std::string nucs;
+  std::string soft = "S";
+  std::string del = "D";
+
+  std::vector<int> nt_vector; //store these here before returning, reverse needs to be reversed
+  std::vector<int> nt_pos;
+
+  int i = 0;
+  int direction = 0;
+  if(reverse){
+    direction = -1;
+  }else{
+    direction = 1;
+  }
+  //std::cout << "direction " << direction << std::endl;
+  do {
+    char tmp = aux[i]; //this is the reference nuc   
+    //std::cout << "abs start pos " << abs_start_pos << std::endl; 
+    //std::cout << "tmp " << tmp << std::endl;
     if(isdigit(tmp)){ //on digit character
       if(deletion){
         deletion = false;
-        positions.push_back(abs_start_pos + total);
-        char del = 'D';
-        haplotypes.push_back(encoded_nucs(del)); //this needs to be generalize to encode deletions that aren't a single NT
-        deletion_nucs.clear();
-        total += deletion_nucs.length();
+        nt_pos.push_back(std::stoi(digits));
+        //std::cout << "parse md push " << abs_start_pos +total << " del" << std::endl;
+        nt_vector.push_back(encoded_nucs(del)); //this needs to be generalize to encode deletions that aren't a single NT
+        nucs.clear();
       }
-      last_digit = true;
+      deletion = false;
       digits += tmp;
-    }else if (isalpha(tmp)){ //on alpha character
-      if(deletion){
-        deletion_nucs += tmp;
+    }else if (isalpha(tmp)){ //on alpha character, not the very first one
+      //std::cout << "here nucs " << nucs << " digits " << digits << " tmp " << tmp << std::endl;
+      if(deletion){ //we already know this will be a deletion
+        nucs += tmp;
+        i++;
         continue;
       }
-      if(last_digit){
-        a = std::stoi(digits);
-        total += a;
-        last_digit = false;
+      if(digits != ""){
+        //check if the position already got soft clipped       
+        nt_pos.push_back(std::stoi(digits));
+        nt_vector.push_back(encoded_nucs(nucs));
         digits.clear();
+        nucs.clear();
+        nucs += tmp;
+
+      }else{
+        nucs += tmp;
       }
-      positions.push_back(abs_start_pos + total);
-      haplotypes.push_back(encoded_nucs(tmp));
-      total += 1;
     }else if (tmp == '^'){
+      //std::cout << "is del" << std::endl;
       deletion = true; 
     }
+    i++;
+  } while(aux[i] != '\0');
+  ignore_positions.clear();
+  //wrap up any remaining substituions
+  nt_pos.push_back(std::stoi(digits));
+  nt_vector.push_back(encoded_nucs(nucs));
+  //if reverse flip the aux tag before you add it
+  if(reverse){
+    std::reverse(nt_vector.begin(), nt_vector.end());
+    std::reverse(nt_pos.begin(), nt_pos.end());
+  }else{
+    std::rotate(nt_vector.begin(),
+                nt_vector.begin()+1, // this will be the new first element
+                nt_vector.end());
   }
+
+    for(unsigned t=0; t < nt_vector.size(); t++){
+    if(t == 0 && !reverse){abs_start_pos += 1;}
+    if(nt_vector[t] == -1 && reverse){
+      continue;
+    }
+    //std::cout << abs_start_pos << std::endl; 
+    //test 22,947 23,012 23,063 
+    haplotypes.push_back(nt_vector[t]);
+    abs_start_pos += (nt_pos[t] * direction);
+    positions.push_back(abs_start_pos);
+    //std::cout << nt_vector[t] << " " << nt_pos[t] << " " << abs_start_pos << std::endl;
+    abs_start_pos += (direction * 1);
+ }
+
 }
 
 //calculate the cluster centers
@@ -285,6 +401,10 @@ void iterate_reads(bam1_t *r, IntervalTree &amplicons){
   uint32_t op;
   uint32_t op_len;
 
+  //we record the range of the read because if thye don't overlap perfectly could
+  //accidentally falsely create multiple haplotypes
+  std::vector<uint32_t> range;
+
   //1 = A, 2 = C, 8 = G, 15 = N bits 
   //get a pointer to the sequence
   uint8_t *seq = bam_get_seq(r);
@@ -297,14 +417,16 @@ void iterate_reads(bam1_t *r, IntervalTree &amplicons){
   //this refers to the start position relative to the reference
   bool reverse = bam_is_rev(r);
   int abs_start_pos = r->core.pos; //leftmost coordinate on ref
-  int abs_end_pos  = bam_endpos(r) - 1; //rightmost coordinate on ref
+  int abs_end_pos  = bam_endpos(r); //rightmost coordinate on ref
+  range.push_back(abs_start_pos);
+  range.push_back(abs_end_pos);
 
   //these will later be place in the amplicon object
   std::vector<int> haplotypes;
   std::vector<uint32_t> positions;
-  parse_md_tag(aux, haplotypes, positions, abs_start_pos); //total bases accounted in md tag
-
+  std::vector<uint32_t> ignore_positions;
   int insertion_pos = 0;
+  std::string nucs;
 
   //test lines
   //std::cout << "abs start " << abs_start_pos << " abs end " << abs_end_pos << std::endl;
@@ -318,7 +440,16 @@ void iterate_reads(bam1_t *r, IntervalTree &amplicons){
     
     //test line
     //std::cout << op << " " << op_len << std::endl;
-    
+    //if it's soft clipped put it on the DND list
+    if(op == 4){  
+      for(uint32_t y = 0; y < op_len; y++){
+        if(reverse){
+          ignore_positions.push_back(abs_end_pos-start-y);
+        }else{
+          ignore_positions.push_back(abs_start_pos+start+y);
+        }
+      }
+    }
     //these are the only operations we care about
     if(op == 1){
       if(reverse){
@@ -326,13 +457,14 @@ void iterate_reads(bam1_t *r, IntervalTree &amplicons){
       } else {
         insertion_pos = abs_start_pos + start;
       }
-      std::cout << aux << std::endl;
       //go get each nt in the insertion region
       for(uint32_t x = 0; x < op_len; x++){
         //the nucelotide at the insertion poi
         char nt = seq_nt16_str[bam_seqi(seq, start+x)];
+        nucs += nt;
         //in this process, the positions are not longer in numeric order
-        haplotypes.push_back(encoded_nucs(nt));
+        haplotypes.push_back(encoded_nucs(nucs));
+        nucs.clear();
         positions.push_back(abs_start_pos+start+x);
       }
     }
@@ -343,9 +475,17 @@ void iterate_reads(bam1_t *r, IntervalTree &amplicons){
                    
     i++;
   }
+   
+  if(reverse){ 
+    parse_md_tag(aux, haplotypes, positions, abs_end_pos, ignore_positions, reverse); //total bases accounted in md tag 
+  }else{
+    parse_md_tag(aux, haplotypes, positions, abs_start_pos, ignore_positions, reverse); //total bases accounted in md tag 
+  }                                                 
+  //reoder the positions to be consistene
+  reorder_haplotypes(haplotypes, positions);
   //places haplotype on amplicon node
-  amplicons.find_amplicon_per_read(abs_start_pos, abs_end_pos, haplotypes, positions);
-  amplicons.print_amplicon_info();
+  amplicons.find_amplicon_per_read(abs_start_pos, abs_end_pos, haplotypes, positions, reverse, range);
+  //amplicons.print_amplicon_info();
 
 }
 
@@ -353,65 +493,143 @@ void create_frequency_matrix(IntervalTree &amplicons){
   /*
    * @params amplicons : data strucuture containing read count, haplotype nt, and positions
    *
-   * Function calculates the frequency of unique haplotypes on a per amplicon basis.
-   */
+   * Function calculates the frequency of unique haplotypes on a per amplicon basis. In
+   * the process, handles combining haplotypes that originate from reads that don't overlap.
+   * Stores unique haplotypes, the associated positions, and frequency to amplicon object.
+   */ 
+
   ITNode *node = amplicons.iterate_nodes();
   int read_count=0; //total reads in amplicon
   std::vector<std::vector<uint32_t>> positions;
+  std::vector<std::vector<uint32_t>> ranges;
   std::vector<std::vector<int>> haplotypes;
   std::vector<uint32_t> position;
+  std::vector<uint32_t> range;
   std::vector<int> haplotype;
 
   std::vector<float> unique_counts;
   std::vector<std::vector<uint32_t>> unique_positions;
   std::vector<std::vector<int>> unique_haplotypes;
-
+  std::vector<std::vector<uint32_t>> unique_ranges;
+  
+  //loop through all the amplicons
   while(node != NULL){
     node = amplicons.iterate_nodes(node->right);
     if(node == NULL){
       break;
     }
     read_count = node->read_count;
+    if(read_count == 0){
+      continue;
+    }
     positions = node->positions;
     haplotypes = node->haplotypes;
+    ranges = node->ranges;
     int length = positions.size(); //total
+    
+    //pool all the positions that have been modified in order to create a table
+    std::vector<uint32_t> flattened = flatten(positions);
+    std::sort(flattened.begin(), flattened.end());
+    std::vector<uint32_t>::iterator ip = std::unique(flattened.begin(), flattened.end());
+    flattened.resize(std::distance(flattened.begin(), ip));
+    
+    std::vector<std::vector<int>> haplo_1;
+    std::vector<std::vector<uint32_t>> pos_1;
 
     //loop through all the haplotypes in the amplicon and find unqiue ones
     for(int i=0; i < length; i++){
       position = positions[i];
       haplotype = haplotypes[i];
-       
+      range = ranges[i];
+
+      //fill out this haplotype with -1 for the things that aren't covered or soft clipped
+      for(uint32_t p = 0; p < flattened.size(); p++){
+        uint32_t tmp = flattened[p];
+        //search the current haplotype for all positions seen on this amplicon
+        if(std::find(position.begin(), position.end(), tmp) != position.end()){
+          continue;
+        }else{
+          position.push_back(tmp);
+          if(range[0] < tmp && tmp < range[1]){
+            haplotype.push_back(-2);
+          }else{
+            haplotype.push_back(-1);
+          }
+        }
+      }
+      reorder_haplotypes(haplotype, position);
+      haplo_1.push_back(haplotype);
+      pos_1.push_back(position);
+    }
+
+    std::vector<std::vector<int>> final_haplotypes;
+    std::vector<std::vector<uint32_t>> final_positions;
+ 
+    //now we are going to remove positions that aren't relevant to due soft clipping/matching
+    std::vector<std::vector<int>> transposed_vector = transpose(haplo_1);
+    std::vector<std::vector<uint32_t>> transposed_positions = transpose(pos_1);
+    for(uint32_t y = 0; y < transposed_vector.size(); y++){
+      //check if all values are negative
+      bool zeros = std::all_of(transposed_vector[y].begin(), transposed_vector[y].end(), [](int i) { return i<0; });
+      if(!zeros){
+        final_haplotypes.push_back(transposed_vector[y]);
+        final_positions.push_back(transposed_positions[y]);
+      }
+    }
+
+    std::vector<std::vector<int>> transposed_vector_f = transpose(final_haplotypes);
+    std::vector<std::vector<uint32_t>> transposed_positions_f = transpose(final_positions);
+    uint32_t l = 0;
+    bool found = false;
+    for(std::vector<int> haplo_2: transposed_vector_f){
       //check if we've seen this haplotype
-      auto it = std::find(unique_positions.begin(), unique_positions.end(), position);
-      if(it != unique_positions.end()) {
-        int index = it - unique_positions.begin();
-        
-        //make sure the nucleotides at these positions alos match
-        if(unique_haplotypes[index] == haplotype){
+      auto it = std::find(unique_haplotypes.begin(), unique_haplotypes.end(), haplo_2);
+     
+     //if we have seen this haplotype
+      if(it != unique_haplotypes.end()) {
+        int index = it - unique_haplotypes.begin();
+        //make sure the nucleotides at these positions also match
+        if(unique_haplotypes[index] == haplo_2){
           unique_counts[index] += 1;
         }else{
-          unique_positions.push_back(position);
-          unique_haplotypes.push_back(haplotype);
+          unique_haplotypes.push_back(haplo_2);
           unique_counts.push_back(1);
         }
-      }else { //add it to the unique haplotypes
-        unique_positions.push_back(position);
-        unique_haplotypes.push_back(haplotype);
-        unique_counts.push_back(1);
+      }else {
+        //lets see if we can find a neighbor, not including the soft clipped/not covered pos
+        std::vector<int> results; //holds soft clipped indices
+        auto it = std::find_if(std::begin(haplo_2), std::end(haplo_2), [](int i){return i == -1;});
+        while (it != std::end(haplo_2)) {
+          results.push_back(std::distance(std::begin(haplo_2), it));
+          it = std::find_if(std::next(it), std::end(haplo_2), [](int i){return i == -1;});
+        }
+        int j = 0;
+        for(std::vector<int> uni_haplo : unique_haplotypes){
+          //replace problem indicies with 
+          for(int remove:results){
+            uni_haplo[remove] = -1;
+          }
+          if(uni_haplo == haplo_2){
+            unique_counts[j] += 1;
+            found = true;
+          }
+          j++;
+        }
+        if(!found){
+          //add it to the unique haplotypes
+          unique_haplotypes.push_back(haplo_2);
+          unique_counts.push_back(1);
+        }
+        found=false;
       }
+      l++;
     }
-    for(float y:unique_counts){
-      std::cout << y / read_count << std::endl;
+    //save this info to the amplicon
+    node->final_haplotypes = unique_haplotypes;
+    node->final_positions = transposed_positions_f[0];
+    for(float d: unique_counts){
+      node->frequency.push_back(d / read_count);
     }
-    for(std::vector<uint32_t> f:unique_positions){
-      for(uint32_t r:f){
-        std::cout << r << ",";
-      }
-      std::cout << "\n";
-    }
-    unique_haplotypes.clear();
-    unique_positions.clear();
-    unique_counts.clear();
    }
 }
 
@@ -431,8 +649,9 @@ void determine_threshold(std::string bam, std::string bed, std::string pair_info
   //populate primer, and primer pairs
   primers = populate_from_file(bed, primer_offset);
   amplicons = populate_amplicons(pair_info, primers);
- 
+  
   samFile *in = hts_open(bam.c_str(), "r");
+  
   hts_idx_t *idx = sam_index_load(in, bam.c_str());
   bam_hdr_t *header = sam_hdr_read(in);
   bam1_t *aln = bam_init1();
@@ -441,17 +660,25 @@ void determine_threshold(std::string bam, std::string bed, std::string pair_info
   //region refers to reference
   region_.assign(header->target_name[0]);
   
-  iter  = sam_itr_querys(idx, header, region_.c_str());
+  iter = sam_itr_querys(idx, header, region_.c_str());
 
+  //fill md tag
+  //bam_fillmd1_core(const char *ref_name, aln, char *ref, int flag, int max_nm)
+
+  int j = 0;
   //this iterates over the reads and assigns them to an amplicon
   while(sam_itr_next(in, iter, aln) >= 0) {
+    j++;
+    //std::cout << j<< std::endl;
+    std::cout << "\n";
+    std::cout << bam_get_qname(aln) << std::endl;
     //pull out the relevant diff from reference
     iterate_reads(aln, amplicons);
   }
 
   
   //extract those reads into a format useable in the clustering
-  //create_frequency_matrix(amplicons);
-  
+  create_frequency_matrix(amplicons);
+  amplicons.print_amplicon_summary();  
 }
 
