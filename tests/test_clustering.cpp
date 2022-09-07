@@ -48,6 +48,7 @@ int _unit_test_kmeans(){
 int main(){
   int success = 2; //count total number of tests
   success -= _unit_test_kmeans();
-  determine_threshold("../data/contamination_tests/simulated_alpha_delta_05_95.substitution.bam", "../data/contamination_tests/sars_primers_strand.bed", "../data/contamination_tests/primer_pairs.tsv", 0);
+  //determine_threshold("../data/contamination_tests/test.calmd.bam", "../data/contamination_tests/sars_primers_strand.bed", "../data/contamination_tests/primer_pairs.tsv", 0);
+  determine_threshold("../data/contamination_tests/simulated_alpha_beta_90_10.bam", "../data/contamination_tests/sars_primers_strand.bed", "../data/contamination_tests/primer_pairs.tsv", 0);
   return(0);
 }

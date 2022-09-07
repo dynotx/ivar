@@ -356,8 +356,7 @@ void k_means(int n_clusters, alglib::real_2d_array xy, cluster &cluster_results)
   alglib::kmeansreport rep;
  
   cluster_results.n_clusters = n_clusters;
-  
-  int num_points = 6; //number of points in the data
+  int num_points = xy.rows(); //number of points in the data
   clusterizercreate(s);
   //X is the data
   //the number of pointss
@@ -369,13 +368,14 @@ void k_means(int n_clusters, alglib::real_2d_array xy, cluster &cluster_results)
   //this is the cluster size!!!
   clusterizerrunkmeans(s, n_clusters, rep);
   if (int(rep.terminationtype) != 1){
-    std::cout << "Error" << std::endl;
+    std::cout << "Error in clustering haplotypes" << std::endl;
     exit(1);
   }
 
-  //int i = 0;
-  /*while(i < n_clusters){
-    std::cout << "center "<< i << " "  << rep.c[i][0] << " " << rep.c[i][1] << std::endl;
+  /*
+  int i = 0;
+  while(i < n_clusters){
+    std::cout << "center "<< i << " "  << rep.c[i][0] << std::endl;
     i++;
   }*/
  
@@ -640,10 +640,12 @@ std::vector<float>  create_frequency_matrix(IntervalTree &amplicons){
             }
             j++;
           }
+        }else if((haplo_2.size() == 1) && (haplo_2[0] == -1)){
+          read_count -= 1;
+          continue;
         }else{
           found = false;
         }
-
         if(!found){
           //add it to the unique haplotypes
           unique_haplotypes.push_back(haplo_2);
@@ -723,21 +725,25 @@ void determine_threshold(std::string bam, std::string bed, std::string pair_info
   
   //extract those reads into a format useable in the clustering
   std::vector<float> all_frequencies = create_frequency_matrix(amplicons);
-  //amplicons.print_amplicon_summary();  
+  for(float freq:all_frequencies){
+    std::cout << freq << std::endl;
+  }
+  amplicons.print_amplicon_summary();  
   
-  /*
   //reshape it into a real 2d array for alglib
   alglib::real_2d_array xy;
-  xy.setlength(1, all_frequencies.size());
-  for(uint32_t i=0; i < all_frequencies.size(); i++){
-    xy(0,i) = all_frequencies[i];
-  }
-  */
+  xy.setlength(all_frequencies.size(), 1);
+  /*for(uint32_t i=0; i < all_frequencies.size(); i++){
+    xy(i,0) = all_frequencies[i];
+  }*/
+ 
   //call kmeans clustering
-  //cluster cluster_results;
-  //k_means(2, xy, cluster_results);
-  //std::cout << cluster_results.sil_score << std::endl;
-  //std::cout << cluster_results.centers << std::endl;
+  cluster cluster_results;
+  k_means(2, xy, cluster_results);
+  /*std::cout << cluster_results.sil_score << std::endl;
+  for(float x: cluster_results.centers){
+    std::cout << x << std::endl;
+  }*/
 
 }
 
