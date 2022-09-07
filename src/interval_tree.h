@@ -31,6 +31,10 @@ public:
   int max;
   std::vector<std::vector<int>> haplotypes;
   std::vector<std::vector<uint32_t>> positions;
+  std::vector<std::vector<uint32_t>> ranges; //the starts and ends of the reads
+  std::vector<std::vector<int>> final_haplotypes; //these are summary for the amplicon
+  std::vector<uint32_t> final_positions;
+  std::vector<float> frequency;
   int read_count=0;
 
 };
@@ -44,7 +48,9 @@ private:
   bool envelopSearch(ITNode *root, Interval data);
   void inOrder(ITNode * root); //prints amplicons starts and ends
   void print_amplicon_info(ITNode *root); //prints haplotypes and positions
-  void find_amplicon_per_read(ITNode *root, int start, int end, std::vector<int> haplotypes, std::vector<uint32_t> positions, bool reverse); //places read info in amplicon
+  void print_amplicon_summary(ITNode *root); //prints summary of unique haplotypes and frequencies
+  void find_amplicon_per_read(ITNode *root, int start, int end, std::vector<int> haplotypes, 
+      std::vector<uint32_t> positions, bool reverse, std::vector<uint32_t> ranges);
 
 public:
   IntervalTree();  // constructor
@@ -52,9 +58,11 @@ public:
   bool envelopSearch(Interval data){ return envelopSearch(_root, data);}
   void inOrder() {inOrder(_root);}
   void print_amplicon_info() {print_amplicon_info(_root);}
+  void print_amplicon_summary() {print_amplicon_summary(_root);}
   ITNode *iterate_nodes(ITNode *root); //used to returns nodes iteratively
   ITNode *iterate_nodes(){return iterate_nodes(_root);}
-  void find_amplicon_per_read(int start, int end, std::vector<int> haplotypes, std::vector<uint32_t> positions, bool reverse){find_amplicon_per_read(_root, start, end, haplotypes, positions, reverse);}
+  void find_amplicon_per_read(int start, int end, std::vector<int> haplotypes, 
+      std::vector<uint32_t> positions, bool reverse, std::vector<uint32_t> ranges){find_amplicon_per_read(_root, start, end, haplotypes, positions, reverse, ranges);}
 };
 
 IntervalTree populate_amplicons(std::string pair_info_file, std::vector<primer> &primers);

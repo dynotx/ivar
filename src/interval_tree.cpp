@@ -83,7 +83,8 @@ void IntervalTree::inOrder(ITNode *root){
 
 //traverse the tree and find the amplicon the read belongs within
 void IntervalTree::find_amplicon_per_read(ITNode *root, int start, int end, 
-    std::vector<int> haplotypes, std::vector<uint32_t> positions, bool reverse){
+    std::vector<int> haplotypes, std::vector<uint32_t> positions, bool reverse,
+    std::vector<uint32_t> range){
   /*
    * @param root : IT node obj
    * @param start : left-most position of read
@@ -100,25 +101,27 @@ void IntervalTree::find_amplicon_per_read(ITNode *root, int start, int end,
   //yes karthik, I know this is poorly written
   if(reverse){
     if((end - 10 < root->data->high_inner) && (root->data->high_inner < end + 10)){
-      if(haplotypes.size() > 1 && positions.size() > 1){
+      //if(haplotypes.size() > 1 && positions.size() > 1){
         root->haplotypes.push_back(haplotypes);
         root->positions.push_back(positions);
+        root->ranges.push_back(range);
         root->read_count += 1;
         return;
-     }
+     //}
     }
   }else{
     if((start -10 < root->data->low_inner) && (root->data->low_inner < start +10)){
-       if(haplotypes.size() > 1 && positions.size() > 1){
+       //if(haplotypes.size() > 1 && positions.size() > 1){
         root->haplotypes.push_back(haplotypes);
         root->positions.push_back(positions);
+        root->ranges.push_back(range);
         //always increment the read count, even if the read macthes the ref perfectly
         root->read_count += 1;
         return;
-      }
+      //}
    }
   }
-  find_amplicon_per_read(root->right, start, end, haplotypes, positions, reverse);
+  find_amplicon_per_read(root->right, start, end, haplotypes, positions, reverse, range);
 }
 
 
@@ -132,6 +135,28 @@ ITNode* IntervalTree::iterate_nodes(ITNode *root){
   if(root == NULL) return(root);
   return(root);
 }
+
+//use this to print out summayr of unique haplotypes and frequencies
+void IntervalTree::print_amplicon_summary(ITNode *root){
+  if (root == NULL) return;
+  if (root->read_count != 0){
+    //print position info
+    for(uint32_t x:root->final_positions){
+        std::cout << x << ", ";
+    }
+      std::cout << "\n";
+    
+    //print haplotype info
+    for(uint32_t i = 0; i < root->frequency.size(); i++){
+      for(int hap:root->final_haplotypes[i]){
+        std::cout << hap << ", ";
+      }
+      std::cout << root->frequency[i] << std::endl;
+    }
+  }
+  print_amplicon_summary(root->right);
+}
+
 
 //use this to print out haplotype and position information per amplicon meant for debugging
 void IntervalTree::print_amplicon_info(ITNode *root){
