@@ -39,6 +39,28 @@ int find_ref_in_allele(std::vector<allele> ad, char ref){
   return -1;
 }
 
+//overload function for storing alleles depths as reads are iterated
+void update_allele_depth(std::vector<allele> &ad, std::vector<std::string> nucleotides, std::vector<uint32_t> positions){
+  /*
+   * @param ad : vector containing all previously recorded alleles
+   * @param nucleotides : vector containing the SNP NT values
+   * @param positions : vector containing the SNP positions
+   * @param qualities ; vector containing variant qualities **TODO**
+   *
+   * Function takes in the variants for a read and populates the allele data structure. All reads
+   * get passed through this.
+   */
+
+  //iterate over the variants
+  for(uint32_t i = 0; i < nucleotides.size(); i++){
+    allele add_base;
+    std::cout << positions[i] << std::endl;
+    std::cout << nucleotides[i] << std::endl;
+    ad.push_back(add_base);
+  }
+    
+}
+
 //ad means the number of reads that support the reported alleles
 std::vector<allele> update_allele_depth(char ref,std::string bases, std::string qualities, uint8_t min_qual){
   //ref always starts as 'N' ?
