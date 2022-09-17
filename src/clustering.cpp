@@ -12,6 +12,7 @@
 #include "ap.h"
 #include "dataanalysis.h"
 #include "interval_tree.h"
+#include "allele_functions.h"
 #include "primer_bed.h"
 #include "stdafx.h"
 #include "clustering.h"
@@ -20,7 +21,7 @@ using namespace alglib;
 std::vector<std::vector<uint32_t>> transpose(const std::vector<std::vector<uint32_t>> data) {
   // this assumes that all inner vectors have the same size and
   // allocates space for the complete result in advance
-  std::vector<std::vector<uint32_t>> result(data[0].size(),
+  std::vector<std::vector<uint32_t> > result(data[0].size(),
                                         std::vector<uint32_t>(data.size()));
   for (std::vector<uint32_t>::size_type i = 0; i < data[0].size(); i++) 
       for (std::vector<uint32_t>::size_type j = 0; j < data.size(); j++) {
@@ -62,16 +63,13 @@ void zip(
     }
 }
 
-void unzip(
-    const std::vector<std::pair<uint32_t, int>> &zipped, 
-    std::vector<int> &haplotypes, 
-    std::vector<uint32_t> &positions)
-{
-    for(size_t i=0; i<positions.size(); i++)
-    {
-        positions[i] = zipped[i].first;
-        haplotypes[i] = zipped[i].second;
-    }
+void unzip(const std::vector<std::pair<uint32_t, int>> &zipped, std::vector<int> &haplotypes, std::vector<uint32_t> &positions){
+  for(size_t i=0; i < positions.size(); i++){
+    positions[i] = zipped[i].first;
+    haplotypes[i] = zipped[i].second;
+  }
+  positions.resize(zipped.size());
+  haplotypes.resize(zipped.size());
 }
 
 void reorder_haplotypes(std::vector<int> &haplotypes, std::vector<uint32_t> &positions){
@@ -83,7 +81,7 @@ void reorder_haplotypes(std::vector<int> &haplotypes, std::vector<uint32_t> &pos
    */
 
     // Zip the vectors together
-    std::vector<std::pair<std::uint32_t ,int>> zipped;
+    std::vector<std::pair<std::uint32_t, int>> zipped;
     zip(haplotypes, positions, zipped);
 
     // Sort the vector of pairs
@@ -145,48 +143,50 @@ int encoded_nucs(std::string &tmp){
 
 
 void parse_md_tag(uint8_t *aux, std::vector<int> &haplotypes, std::vector<uint32_t> &positions,
-    int abs_start_pos, std::vector<uint32_t> ignore_positions, bool reverse){
+    uint32_t abs_start_pos, std::vector<allele> &ad,
+    uint8_t *seq, uint32_t length, uint32_t correction_factor){
   /*
    * @param aux : the md tag
    * @param haplotypes : vector with encoded nuc haplotypes
    * @param positions : the positions of sub,ins, and dels that make the haplotype
    * @param abs_start_pos : the start position relative to the reference (is actually abs_end_pos) if reverse
    * @param reverse : whether this is a reverse read or not
+   * @param ad : vector containing variant alleles
+   * @param seq : pointer to the sequence
    *
    * Parse the MD tag, populating the haplotypes and positions of the amplicon with
    * substitutions.
    * Any discrepency between the cigar string and MD tag means insertions are in the read.
    * Cigar code handles insertions and deletions elsewhere.
    */
-  
+  if(correction_factor == 0){
+    correction_factor = -1;
+  }
   //std::cout << "aux " << aux << std::endl;
   bool deletion = false; //helping track the deletions
   std::string digits; //helping to track number operations 
   std::string nucs;
   std::string soft = "S";
   std::string del = "D";
-
-  std::vector<int> nt_vector; //store these here before returning, reverse needs to be reversed
-  std::vector<int> nt_pos;
-
+  std::string nt;
   int i = 0;
-  int direction = 0;
-  if(reverse){
-    direction = -1;
-  }else{
-    direction = 1;
-  }
-  //std::cout << "direction " << direction << std::endl;
+  
+  std::vector<std::string> nucleotides; //store the substituions & deletions
+
   do {
     char tmp = aux[i]; //this is the reference nuc   
-    //std::cout << "abs start pos " << abs_start_pos << std::endl; 
     //std::cout << "tmp " << tmp << std::endl;
     if(isdigit(tmp)){ //on digit character
       if(deletion){
         deletion = false;
-        nt_pos.push_back(std::stoi(digits));
-        //std::cout << "parse md push " << abs_start_pos +total << " del" << std::endl;
-        nt_vector.push_back(encoded_nucs(del)); //this needs to be generalize to encode deletions that aren't a single NT
+        abs_start_pos += std::stoi(digits) + nucs.length();
+        positions.push_back(abs_start_pos);
+        nt = seq_nt16_str[bam_seqi(seq, abs_start_pos+correction_factor - length)];
+        haplotypes.push_back(encoded_nucs(nt));
+        nucleotides.push_back(nt);
+        //std::cout << "correction factor " << correction_factor << " " << length << std::endl;
+        //std::cout << abs_start_pos+correction_factor - length << std::endl;
+        //std::cout << abs_start_pos << " " << nt << std::endl;
         nucs.clear();
       }
       deletion = false;
@@ -199,9 +199,15 @@ void parse_md_tag(uint8_t *aux, std::vector<int> &haplotypes, std::vector<uint32
         continue;
       }
       if(digits != ""){
-        //check if the position already got soft clipped       
-        nt_pos.push_back(std::stoi(digits));
-        nt_vector.push_back(encoded_nucs(nucs));
+        //check if the position already got soft clipped
+        abs_start_pos += std::stoi(digits) + nucs.length();
+        positions.push_back(abs_start_pos);
+        nt = seq_nt16_str[bam_seqi(seq, abs_start_pos+correction_factor - length)];
+        nucleotides.push_back(nt);
+        haplotypes.push_back(encoded_nucs(nt));
+        //std::cout << "correction factor " << correction_factor << " " << length << std::endl;
+        //std::cout << abs_start_pos+correction_factor - length << std::endl;
+        //std::cout << abs_start_pos << " " << nt << std::endl;
         digits.clear();
         nucs.clear();
         nucs += tmp;
@@ -215,34 +221,8 @@ void parse_md_tag(uint8_t *aux, std::vector<int> &haplotypes, std::vector<uint32
     }
     i++;
   } while(aux[i] != '\0');
-  ignore_positions.clear();
-  //wrap up any remaining substituions
-  nt_pos.push_back(std::stoi(digits));
-  nt_vector.push_back(encoded_nucs(nucs));
-  //if reverse flip the aux tag before you add it
-  if(reverse){
-    std::reverse(nt_vector.begin(), nt_vector.end());
-    std::reverse(nt_pos.begin(), nt_pos.end());
-  }else{
-    std::rotate(nt_vector.begin(),
-                nt_vector.begin()+1, // this will be the new first element
-                nt_vector.end());
-  }
-
-    for(unsigned t=0; t < nt_vector.size(); t++){
-    if(t == 0 && !reverse){abs_start_pos += 1;}
-    if(nt_vector[t] == -1 && reverse){
-      continue;
-    }
-    //std::cout << abs_start_pos << std::endl; 
-    //test 22,947 23,012 23,063 
-    haplotypes.push_back(nt_vector[t]);
-    abs_start_pos += (nt_pos[t] * direction);
-    positions.push_back(abs_start_pos);
-    //std::cout << nt_vector[t] << " " << nt_pos[t] << " " << abs_start_pos << std::endl;
-    abs_start_pos += (direction * 1);
- }
-
+  update_allele_depth(ad, nucleotides, positions);
+  std::cout << "\n";
 }
 
 //calculate the cluster centers
@@ -269,6 +249,7 @@ void calculate_cluster_centers(alglib::real_2d_array X, alglib::kmeansreport rep
     //std::cout << "center " << k << " is " << summation[k][0]/summation[k][1] << std::endl;
   }
   cluster_results.centers = centers;
+
 }
 
 //support function for sil score
@@ -383,7 +364,7 @@ void k_means(int n_clusters, alglib::real_2d_array xy, cluster &cluster_results)
   calculate_cluster_centers(xy, rep, n_clusters, cluster_results);
 }
 
-void iterate_reads(bam1_t *r, IntervalTree &amplicons){
+void iterate_reads(bam1_t *r, IntervalTree &amplicons, std::vector<allele> &ad){
   /*
    * @param r : alignment object
    * @param track_haplotypes : vector containing haplotype objects per amplicon
@@ -394,7 +375,6 @@ void iterate_reads(bam1_t *r, IntervalTree &amplicons){
 
   //get the cigar operation 
   uint32_t *cigar = bam_get_cigar(r);
-
   uint32_t i = 0;  
 
   //keep track of operation and length of operation
@@ -412,25 +392,26 @@ void iterate_reads(bam1_t *r, IntervalTree &amplicons){
   //get pointer to MD:Z tag which tells us where substitutions are
   uint8_t *aux = bam_aux_get(r, "MD");
   //temp variable to count positions
-  int start = 0;
+  uint32_t start = 0;
   //this refers to the start position relative to the reference
   bool reverse = bam_is_rev(r);
-  int abs_start_pos = r->core.pos; //leftmost coordinate on ref
-  int abs_end_pos  = bam_endpos(r); //rightmost coordinate on ref
+  uint32_t abs_start_pos = r->core.pos; //leftmost coordinate on ref
+  uint32_t abs_end_pos  = bam_endpos(r); //rightmost coordinate on ref
   range.push_back(abs_start_pos);
   range.push_back(abs_end_pos);
 
   //these will later be place in the amplicon object
   std::vector<int> haplotypes;
   std::vector<uint32_t> positions;
-  std::vector<uint32_t> ignore_positions;
-  int insertion_pos = 0;
+  uint32_t insertion_pos = 0;
   std::string nucs;
+  uint32_t correction_factor = 0;
+  bool first_pass = true;
 
   //test lines
-  //std::cout << "abs start " << abs_start_pos << " abs end " << abs_end_pos << std::endl;
+  std::cout << "abs start " << abs_start_pos << " abs end " << abs_end_pos << std::endl;
   //remember 0 is false in c++
-  //std::cout << "reverse " << reverse << std::endl;
+  std::cout << "reverse " << reverse << std::endl;
 
   //iterate through cigar ops for this read
   while(i < r->core.n_cigar){   
@@ -439,16 +420,12 @@ void iterate_reads(bam1_t *r, IntervalTree &amplicons){
     
     //test line
     //std::cout << op << " " << op_len << std::endl;
-    //if it's soft clipped put it on the DND list
-    if(op == 4){  
-      for(uint32_t y = 0; y < op_len; y++){
-        if(reverse){
-          ignore_positions.push_back(abs_end_pos-start-y);
-        }else{
-          ignore_positions.push_back(abs_start_pos+start+y);
-        }
-      }
+    if(op == 4 && first_pass){
+      correction_factor = op_len + 1;
+      first_pass = false;
     }
+    if(op != 4){ first_pass = false;}
+
     //these are the only operations we care about
     if(op == 1){
       if(reverse){
@@ -467,28 +444,23 @@ void iterate_reads(bam1_t *r, IntervalTree &amplicons){
         positions.push_back(abs_start_pos+start+x);
       }
     }
-
     if (bam_cigar_type(op) & 2){
       start += op_len; //total positions iterated relation to ref
     }
                    
     i++;
   }
-   
-  if(reverse){ 
-    parse_md_tag(aux, haplotypes, positions, abs_end_pos, ignore_positions, reverse); //total bases accounted in md tag 
-  }else{
-    parse_md_tag(aux, haplotypes, positions, abs_start_pos, ignore_positions, reverse); //total bases accounted in md tag 
-  }                                                 
+  
+  parse_md_tag(aux, haplotypes, positions, abs_start_pos, ad, seq, abs_start_pos, correction_factor);
   //reoder the positions to be consistene
   reorder_haplotypes(haplotypes, positions);
   //places haplotype on amplicon node
   amplicons.find_amplicon_per_read(abs_start_pos, abs_end_pos, haplotypes, positions, reverse, range);
-  //amplicons.print_amplicon_summary();
+  //amplicons.print_amplicon_info();
 
 }
 
-std::vector<float>  create_frequency_matrix(IntervalTree &amplicons){
+std::vector<float> create_frequency_matrix(IntervalTree &amplicons){
   /*
    * @param amplicons : data strucuture containing read count, haplotype nt, and positions
    * @return frequencies : a flat vector containing all haplotype frequencies
@@ -527,7 +499,7 @@ std::vector<float>  create_frequency_matrix(IntervalTree &amplicons){
     haplotypes = node->haplotypes;
     ranges = node->ranges;
     int length = positions.size(); //total
-    //std::cout << "Low: " << node->data->low << " High: " << node->data->high << std::endl;    
+    //std::cout << "\nLow: " << node->data->low << " High: " << node->data->high << std::endl;    
     //pool all the positions that have been modified in order to create a table
     std::vector<uint32_t> flattened = flatten(positions);
     std::sort(flattened.begin(), flattened.end());
@@ -574,9 +546,9 @@ std::vector<float>  create_frequency_matrix(IntervalTree &amplicons){
       //check if all values are negative
       bool zeros = std::all_of(transposed_vector[y].begin(), transposed_vector[y].end(), [](int i) { return i<0; });
       //counts the depth of this allele in the haplotype
-      int count = std::count_if(transposed_vector[y].begin(), transposed_vector[y].end(), [] (int i) { return (i>=0);});
-      int read_min = 10;
-      if((!zeros) && (count > read_min)){
+      //int count = std::count_if(transposed_vector[y].begin(), transposed_vector[y].end(), [] (int i) { return (i>=0);});
+      //int read_min = 10;
+      if((!zeros)){
         final_haplotypes.push_back(transposed_vector[y]);
         final_positions.push_back(transposed_positions[y]);
       }
@@ -654,14 +626,13 @@ std::vector<float>  create_frequency_matrix(IntervalTree &amplicons){
         }
       }
     }
-    /*for(std::vector<uint32_t> pos:transposed_positions_f){
-      for(uint32_t y:pos){
+     /* for(uint32_t y:transposed_positions_f[0]){
         std::cout << y << ", ";
       }
       std::cout << "\n";
-    }*/
     
-    /*for(std::vector<int> hap:unique_haplotypes){
+    
+    for(std::vector<int> hap:unique_haplotypes){
       for(int h:hap){
         std::cout << h << ", ";
       }
@@ -671,6 +642,7 @@ std::vector<float>  create_frequency_matrix(IntervalTree &amplicons){
     node->final_haplotypes = unique_haplotypes;
     node->final_positions = transposed_positions_f[0];
     for(float d: unique_counts){
+      //std::cout << "uc " << d << " read count " << read_count <<std::endl;
       node->frequency.push_back(d / read_count);
       frequencies.push_back(d / read_count);
     }
@@ -692,6 +664,10 @@ void determine_threshold(std::string bam, std::string bed, std::string pair_info
    * @param primer_offset : 
    */
 
+  //make sure the alleles get recorded
+  std::vector<allele> ad;
+
+  std::string output_amplicon = "amplicon.txt";
   //initialize haplotype data structure
   //std::vector<haplotype> track_haplotypes;
   std::vector<primer> primers;
@@ -717,11 +693,10 @@ void determine_threshold(std::string bam, std::string bed, std::string pair_info
 
   //this iterates over the reads and assigns them to an amplicon
   while(sam_itr_next(in, iter, aln) >= 0) {
-    //std::cout << bam_get_qname(aln) << std::endl;
+    std::cout << bam_get_qname(aln) << std::endl;
     //pull out the relevant diff from reference
-    iterate_reads(aln, amplicons);
+    iterate_reads(aln, amplicons, ad);
   }
-
   
   //extract those reads into a format useable in the clustering
   std::vector<float> all_frequencies = create_frequency_matrix(amplicons);
@@ -729,17 +704,22 @@ void determine_threshold(std::string bam, std::string bed, std::string pair_info
     std::cout << freq << std::endl;
   }
   amplicons.print_amplicon_summary();  
-  
+  //amplicons.dump_amplicon_summary(output_amplicon);
+
   //reshape it into a real 2d array for alglib
-  alglib::real_2d_array xy;
-  xy.setlength(all_frequencies.size(), 1);
-  /*for(uint32_t i=0; i < all_frequencies.size(); i++){
-    xy(i,0) = all_frequencies[i];
-  }*/
- 
+  //alglib::real_2d_array xy;
+  //xy.setlength(all_frequencies.size(), 1);
+  //for(uint32_t i=0; i < all_frequencies.size(); i++){
+  //  xy(i,0) = all_frequencies[i];
+  //}
+   
   //call kmeans clustering
-  cluster cluster_results;
-  k_means(2, xy, cluster_results);
+  //cluster cluster_results;
+  //for (int n =2; n <= 8; n++){
+  //  k_means(n, xy, cluster_results);
+  //  std::cout << "n " << n << " sil " << cluster_results.sil_score << std::endl;
+  //}
+  
   /*std::cout << cluster_results.sil_score << std::endl;
   for(float x: cluster_results.centers){
     std::cout << x << std::endl;

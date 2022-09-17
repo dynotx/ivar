@@ -26,6 +26,9 @@ class cluster {
 };
 
 
+//zipping and unzipping functions for haplotypes && position
+void zip(const std::vector<int> &haplotypes, const std::vector<uint32_t> &positions,std::vector<std::pair<uint32_t,int>> &zipped);
+void unzip(const std::vector<std::pair<uint32_t, int>> &zipped, std::vector<int> &haplotypes, std::vector<uint32_t> &positions);
 void print_cluster_info(cluster cluster_results);
 void k_means(int n_clusters, alglib::real_2d_array xy, cluster &cluster_results);
 float average(std::vector<float> x);
