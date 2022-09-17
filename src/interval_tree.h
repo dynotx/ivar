@@ -7,8 +7,8 @@ using namespace std;
 
 // Structure to represent an interval
 class Interval{   public:
-  Interval(int val1, int val2, int val3, int val4): low(std::min(val1, val2)), high(std::max(val1, val2)), low_inner(val3), high_inner(val4) {}  // constructor
-  int low, high, low_inner, high_inner;
+  Interval(uint32_t val1, uint32_t val2, uint32_t val3, uint32_t val4): low(std::min(val1, val2)), high(std::max(val1, val2)), low_inner(val3), high_inner(val4) {}  // constructor
+  uint32_t low, high, low_inner, high_inner;
 };
 // Structure to represent a node in Interval Search Tree
 class ITNode{
@@ -28,7 +28,7 @@ public:
   ITNode(Interval value): data(new Interval(value)), left(nullptr), right(nullptr), max(value.high) {}  // constructor
   Interval *data;  // pointer to node's interval data object
   ITNode *left, *right; // pointer to node's left & right child node objects
-  int max;
+  uint32_t max;
   std::vector<std::vector<int>> haplotypes;
   std::vector<std::vector<uint32_t>> positions;
   std::vector<std::vector<uint32_t>> ranges; //the starts and ends of the reads
@@ -49,7 +49,8 @@ private:
   void inOrder(ITNode * root); //prints amplicons starts and ends
   void print_amplicon_info(ITNode *root); //prints haplotypes and positions
   void print_amplicon_summary(ITNode *root); //prints summary of unique haplotypes and frequencies
-  void find_amplicon_per_read(ITNode *root, int start, int end, std::vector<int> haplotypes, 
+  void dump_amplicon_summary(ITNode *root, std::string filename); //dump amplicon summaries to json file
+  void find_amplicon_per_read(ITNode *root, uint32_t start, uint32_t end, std::vector<int> haplotypes, 
       std::vector<uint32_t> positions, bool reverse, std::vector<uint32_t> ranges);
 
 public:
@@ -59,9 +60,10 @@ public:
   void inOrder() {inOrder(_root);}
   void print_amplicon_info() {print_amplicon_info(_root);}
   void print_amplicon_summary() {print_amplicon_summary(_root);}
+  void dump_amplicon_summary(std::string filename) {dump_amplicon_summary(_root, filename);}
   ITNode *iterate_nodes(ITNode *root); //used to returns nodes iteratively
   ITNode *iterate_nodes(){return iterate_nodes(_root);}
-  void find_amplicon_per_read(int start, int end, std::vector<int> haplotypes, 
+  void find_amplicon_per_read(uint32_t start, uint32_t end, std::vector<int> haplotypes, 
       std::vector<uint32_t> positions, bool reverse, std::vector<uint32_t> ranges){find_amplicon_per_read(_root, start, end, haplotypes, positions, reverse, ranges);}
 };
 
