@@ -23,6 +23,8 @@ struct allele{
 
 int check_allele_exists(std::string n, std::vector<allele> ad);
 std::vector<allele> update_allele_depth(char ref,std::string bases, std::string qualities, uint8_t min_qual);
+//for use in consensus thresholding
+void update_allele_depth(std::vector<allele> &ad, std::vector<std::string> nucleotides, std::vector<uint32_t> positions);
 void print_allele_depths(std::vector<allele> ad);
 int find_ref_in_allele(std::vector<allele> ad, char ref);
 char gt2iupac(char a, char b);
