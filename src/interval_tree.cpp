@@ -254,22 +254,13 @@ void IntervalTree::print_amplicon_summary(ITNode *root){
 }
 
 
-//use this to print out haplotype and position information per amplicon meant for debugging
-void IntervalTree::print_amplicon_info(ITNode *root){
+void IntervalTree::remove_low_noise(ITNode *root, std::vector<position> all_positions){
   if (root == NULL) return;
   //print position info
-  if(root->read_count > 0){
-    std::cout << "Read count: " << root->read_count <<std::endl;
-  }
-  for(std::vector<uint32_t> x:root->positions){
-    std::cout << "haplotype position modified ";
-    for(uint32_t t: x){
-      std::cout << "pos " << t << std::endl;
-    }
-    std::cout << "\n";
-  }
- 
-  print_amplicon_info(root->right);
+  //if(root->read_count > 0){
+  //  
+  //}
+  remove_low_noise(root->right, all_positions);
 }
 
 // A stand-alone function to create a tree containing the coordinates of each amplicon

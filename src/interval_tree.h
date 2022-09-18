@@ -1,5 +1,6 @@
 #include <iostream>
 #include "primer_bed.h"
+#include "allele_functions.h"
 using namespace std;
 
 #ifndef interval_tree
@@ -47,7 +48,7 @@ private:
   void insert(ITNode *root, Interval data);
   bool envelopSearch(ITNode *root, Interval data);
   void inOrder(ITNode * root); //prints amplicons starts and ends
-  void print_amplicon_info(ITNode *root); //prints haplotypes and positions
+  void remove_low_noise(ITNode *root, std::vector<position> all_positions); //prints haplotypes and positions
   void print_amplicon_summary(ITNode *root); //prints summary of unique haplotypes and frequencies
   void dump_amplicon_summary(ITNode *root, std::string filename); //dump amplicon summaries to json file
   void find_amplicon_per_read(ITNode *root, uint32_t start, uint32_t end, std::vector<int> haplotypes, 
@@ -58,7 +59,7 @@ public:
   void insert(Interval data){ insert(_root, data);}
   bool envelopSearch(Interval data){ return envelopSearch(_root, data);}
   void inOrder() {inOrder(_root);}
-  void print_amplicon_info() {print_amplicon_info(_root);}
+  void remove_low_noise(std::vector<position> all_positions) {remove_low_noise(_root, all_positions);}
   void print_amplicon_summary() {print_amplicon_summary(_root);}
   void dump_amplicon_summary(std::string filename) {dump_amplicon_summary(_root, filename);}
   ITNode *iterate_nodes(ITNode *root); //used to returns nodes iteratively
