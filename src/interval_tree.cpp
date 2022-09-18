@@ -255,21 +255,41 @@ void IntervalTree::print_amplicon_summary(ITNode *root){
 //potential point for optimization
 void IntervalTree::remove_low_noise(ITNode *root, std::vector<position> all_positions){
   if (root == NULL) return; 
+  //make sure we have varitants for this haplotype
   if ((root->read_count != 0) && (root->final_positions.size() > 0)){
+    //iterate through all positions
     for(uint32_t i = 0; i < all_positions.size(); i++){
-      int last_element = root->final_positions.size() - 1;
+      uint32_t total_pos = all_positions[i].pos;
+      uint32_t total_depth = all_positions[i].depth;
+      std::vector<allele> total_alleles = all_positions[i].ad;
+      //int last_element = root->final_positions.size() - 1;
       //we've exceeded the largest position in this haplotypes
-      if(all_positions[i].pos > root->final_positions[last_element]){
-        break;
-      }
-      //search for the position
-      for(uint32_t x = 0; x < root->final_positions.size(); x++){
-        if(root->final_positions[x] == all_positions[i].pos){
-          uint32_t pos_depth = all_positions[i].depth;
-          std::cout << pos_depth << std::endl;
-          //int nt = root->final_haplotypes[x];
-          for(allele y: all_positions[i].ad){
-            std::cout << y.nuc << " " << y.depth << std::endl;
+      //if(all_positions[i].pos > root->final_positions[last_element]){
+      //  break;
+      //}
+
+      //search for the position in the haplotypes for this amplicon
+      std::vector<uint32_t>::iterator it = std::find(root->final_positions.begin(), root->final_positions.end(), total_pos);
+      //if we did find this position in our haplotypes for this amplicon
+      if(it != root->final_positions.end()){
+        uint32_t index = it - root->final_positions.begin();
+               
+        std::cout << "Element " << total_pos << " found " << index <<std::endl;
+        std::cout << root->data->low << " " << root->data->high << std::endl;
+        for(uint32_t y = 0; y < root->final_haplotypes.size(); y++){
+          std::vector<int> haplo = root->final_haplotypes[y];
+          int amp_nt = haplo[index];
+          std::string decoded_nuc = decoded_nucs(amp_nt);
+          std::cout <<  root->final_positions[index] << std::endl;
+          if(amp_nt >= 0){
+            for(allele al: total_alleles){
+              if(decoded_nuc.compare(al.nuc) == 0){
+                std::cout << decoded_nuc << "\n";
+                print_single_allele(al);
+                std::cout << al.depth << " " << total_depth << " " << al.depth / total_depth << std::endl;
+                std::cout << "\n";
+              }
+            }
           }
         }
       }
