@@ -5,16 +5,26 @@
 #include<iostream>
 
 #include "allele_functions.h"
+void print_single_allele(allele a){
+  std::cout << "Nuc: " << a.nuc << std::endl;;
+  std::cout << "Depth: " << a.depth << std::endl;
+  std::cout << "Reverse: " << a.reverse <<std::endl;
+  std::cout << "Qual: " << (uint16_t) a.mean_qual << std::endl;
+  std::cout << "Beg: " << a.beg << std::endl;
+  std::cout << "End: " << a.end << std::endl;
 
+}
 void print_allele_depths(std::vector<allele> ad){
-  std::cout << "AD Size: " << ad.size() << " " << std::endl;
-  for(std::vector<allele>::iterator it = ad.begin(); it != ad.end(); ++it) {
-    std::cout << "Nuc: " << it->nuc << std::endl;;
-    std::cout << "Depth: " << it->depth << std::endl;
+  if(ad.size() > 0){
+    std::cout << "AD Size: " << ad.size() << " " << std::endl;
+    for(std::vector<allele>::iterator it = ad.begin(); it != ad.end(); ++it) {
+      std::cout << "Nuc: " << it->nuc << std::endl;;
+      std::cout << "Depth: " << it->depth << std::endl;
       std::cout << "Reverse: " << it->reverse <<std::endl;
-    std::cout << "Qual: " << (uint16_t) it->mean_qual << std::endl;
-    std::cout << "Beg: " << it->beg << std::endl;
-    std::cout << "End: " << it->end << std::endl;
+      std::cout << "Qual: " << (uint16_t) it->mean_qual << std::endl;
+      std::cout << "Beg: " << it->beg << std::endl;
+      std::cout << "End: " << it->end << std::endl;
+    }
   }
 }
 
@@ -75,7 +85,7 @@ void update_allele_depth(std::vector<position> &all_positions, std::vector<std::
   //iterate over the variants
   for(uint32_t i = 0; i < nucleotides.size(); i++){
     int location = check_pos_exists(positions[i], all_positions);
-    
+     
     //this position already exists
     if(location != -1){
       all_positions[location].depth += 1;
@@ -86,17 +96,17 @@ void update_allele_depth(std::vector<position> &all_positions, std::vector<std::
         new_allele.depth = 1;
         new_allele.nuc = nucleotides[i];
         all_positions[location].ad.push_back(new_allele);
-      }else{ //allele exists
+      }else{
         all_positions[location].ad[allele_location].depth += 1;
       }
     }else{ //add the position to the vector
       position new_position;
       new_position.pos = positions[i];
+      new_position.depth = 1;      
       allele new_allele;
       new_allele.depth = 1;
       new_allele.nuc = nucleotides[i];
       new_position.ad.push_back(new_allele);
-      new_position.depth = 1;
       all_positions.push_back(new_position); 
     }
   }
@@ -104,10 +114,12 @@ void update_allele_depth(std::vector<position> &all_positions, std::vector<std::
   //test lines
   /*for(uint32_t t = 0; t < all_positions.size(); t++){
     position test = all_positions[t];
-    std::cout << "\n";
-    std::cout << "pos " << test.pos << std::endl;  
-    print_allele_depths(test.ad);
-    }*/
+    if(test.ad.size() > 0){
+      std::cout << "\n";
+      std::cout << "pos " << test.pos << " depth " << test.depth <<  std::endl; 
+      print_allele_depths(test.ad);
+    }
+  }*/
     
 }
 
