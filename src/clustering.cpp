@@ -222,7 +222,6 @@ void parse_md_tag(uint8_t *aux, std::vector<int> &haplotypes, std::vector<uint32
     i++;
   } while(aux[i] != '\0');
   update_allele_depth(all_positions, nucleotides, positions);
-  std::cout << "\n";
 }
 
 //calculate the cluster centers
@@ -409,9 +408,9 @@ void iterate_reads(bam1_t *r, IntervalTree &amplicons, std::vector<position> &al
   bool first_pass = true;
 
   //test lines
-  std::cout << "abs start " << abs_start_pos << " abs end " << abs_end_pos << std::endl;
+  //std::cout << "abs start " << abs_start_pos << " abs end " << abs_end_pos << std::endl;
   //remember 0 is false in c++
-  std::cout << "reverse " << reverse << std::endl;
+  //std::cout << "reverse " << reverse << std::endl;
 
   //iterate through cigar ops for this read
   while(i < r->core.n_cigar){   
@@ -664,8 +663,14 @@ void determine_threshold(std::string bam, std::string bed, std::string pair_info
    * @param primer_offset : 
    */
 
-  //make sure the alleles get recorded
+  //make sure the alleles get recorded by position
   std::vector<position> all_positions;
+  //populate with empty positions for each thing in reference
+  for(uint32_t i=0; i < 29903; i++){
+    position new_position;
+    new_position.pos = i;
+    all_positions.push_back(new_position);
+  }
 
   std::string output_amplicon = "amplicon.txt";
   //initialize haplotype data structure
@@ -693,17 +698,20 @@ void determine_threshold(std::string bam, std::string bed, std::string pair_info
 
   //this iterates over the reads and assigns them to an amplicon
   while(sam_itr_next(in, iter, aln) >= 0) {
-    std::cout << bam_get_qname(aln) << std::endl;
+    //std::cout << bam_get_qname(aln) << std::endl;
     //pull out the relevant diff from reference
     iterate_reads(aln, amplicons, all_positions);
   }
-  
+
+  //remove low level noise
+  amplicons.remove_low_noise(all_positions);
+
   //extract those reads into a format useable in the clustering
   std::vector<float> all_frequencies = create_frequency_matrix(amplicons);
   for(float freq:all_frequencies){
     std::cout << freq << std::endl;
   }
-  amplicons.print_amplicon_summary();  
+  //amplicons.print_amplicon_summary();  
   //amplicons.dump_amplicon_summary(output_amplicon);
 
   //reshape it into a real 2d array for alglib
