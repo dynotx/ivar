@@ -143,7 +143,7 @@ int encoded_nucs(std::string &tmp){
 
 
 void parse_md_tag(uint8_t *aux, std::vector<int> &haplotypes, std::vector<uint32_t> &positions,
-    uint32_t abs_start_pos, std::vector<allele> &ad,
+    uint32_t abs_start_pos, std::vector<position> &all_positions,
     uint8_t *seq, uint32_t length, uint32_t correction_factor){
   /*
    * @param aux : the md tag
@@ -221,7 +221,7 @@ void parse_md_tag(uint8_t *aux, std::vector<int> &haplotypes, std::vector<uint32
     }
     i++;
   } while(aux[i] != '\0');
-  update_allele_depth(ad, nucleotides, positions);
+  update_allele_depth(all_positions, nucleotides, positions);
   std::cout << "\n";
 }
 
@@ -364,7 +364,7 @@ void k_means(int n_clusters, alglib::real_2d_array xy, cluster &cluster_results)
   calculate_cluster_centers(xy, rep, n_clusters, cluster_results);
 }
 
-void iterate_reads(bam1_t *r, IntervalTree &amplicons, std::vector<allele> &ad){
+void iterate_reads(bam1_t *r, IntervalTree &amplicons, std::vector<position> &all_positions){
   /*
    * @param r : alignment object
    * @param track_haplotypes : vector containing haplotype objects per amplicon
@@ -451,7 +451,7 @@ void iterate_reads(bam1_t *r, IntervalTree &amplicons, std::vector<allele> &ad){
     i++;
   }
   
-  parse_md_tag(aux, haplotypes, positions, abs_start_pos, ad, seq, abs_start_pos, correction_factor);
+  parse_md_tag(aux, haplotypes, positions, abs_start_pos, all_positions, seq, abs_start_pos, correction_factor);
   //reoder the positions to be consistene
   reorder_haplotypes(haplotypes, positions);
   //places haplotype on amplicon node
@@ -665,7 +665,7 @@ void determine_threshold(std::string bam, std::string bed, std::string pair_info
    */
 
   //make sure the alleles get recorded
-  std::vector<allele> ad;
+  std::vector<position> all_positions;
 
   std::string output_amplicon = "amplicon.txt";
   //initialize haplotype data structure
@@ -695,7 +695,7 @@ void determine_threshold(std::string bam, std::string bed, std::string pair_info
   while(sam_itr_next(in, iter, aln) >= 0) {
     std::cout << bam_get_qname(aln) << std::endl;
     //pull out the relevant diff from reference
-    iterate_reads(aln, amplicons, ad);
+    iterate_reads(aln, amplicons, all_positions);
   }
   
   //extract those reads into a format useable in the clustering

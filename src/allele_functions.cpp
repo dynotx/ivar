@@ -39,8 +39,25 @@ int find_ref_in_allele(std::vector<allele> ad, char ref){
   return -1;
 }
 
+//overload function for checking if an allele at a position exists as reads are iterated
+/*int check_allele_exists(uint32_t position, std::string nucleotide, std::vector<position> all_positions){
+  *
+   * @param position : the position relative to the reference
+   * @param nucleotide : the nucleotides to place
+   * @param ad : vector holding all alleles for all positions
+   *
+   * Function takes the allele vector for the entire bam file and checks if an allele already exists at
+   * a position. Return 1 for both positon and allele exist, return 0 for neither exit, and return -1
+   * for position exists but not allele.
+   *
+  std::cout << position << " " << nucleotide << std::endl;
+  all_positions.clear();
+  return(0);
+
+}*/
+
 //overload function for storing alleles depths as reads are iterated
-void update_allele_depth(std::vector<allele> &ad, std::vector<std::string> nucleotides, std::vector<uint32_t> positions){
+void update_allele_depth(std::vector<position> &all_positions, std::vector<std::string> nucleotides, std::vector<uint32_t> positions){
   /*
    * @param ad : vector containing all previously recorded alleles
    * @param nucleotides : vector containing the SNP NT values
@@ -53,10 +70,22 @@ void update_allele_depth(std::vector<allele> &ad, std::vector<std::string> nucle
 
   //iterate over the variants
   for(uint32_t i = 0; i < nucleotides.size(); i++){
-    allele add_base;
-    std::cout << positions[i] << std::endl;
-    std::cout << nucleotides[i] << std::endl;
-    ad.push_back(add_base);
+    //we have seen this allele before
+    /*if(check_allele_exists(positions[i], nucleotides[i], all_positions) == 0){
+      std::cout << "allele found " << positions[i] << " " << nucleotides[i] << std::endl;
+    } else if(check_allele_exists(positions[i], nucleotides[i], all_positions) == -1) {
+      std::cout << "posistion found not allele" << std::endl;
+    }else{
+      std::cout << "allele not found " << positions[i] << " " << nucleotides[i] << std::endl;
+      all_positions.clear();
+      add_base.nuc = nucleotides[i];
+      add_base.beg = positions[i];
+      add_base.depth = 1;
+      ad.push_back(add_base);
+      
+    }*/
+    std::cout << positions[i] << " " << nucleotides[i] << std::endl;
+    all_positions.clear();
   }
     
 }
