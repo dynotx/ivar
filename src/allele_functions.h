@@ -24,14 +24,14 @@ struct allele{
 
 //data struct to hold all alleles at a position
 struct position{
-  //std::vector<allele> ad;
-  uint32_t pos;
+  std::vector<allele> ad; //all possible alleles at this position
+  uint32_t pos; //positions relative to the reference
+  uint32_t depth; //total ungapped depth at the position
 };
 
 int check_allele_exists(std::string n, std::vector<allele> ad);
 std::vector<allele> update_allele_depth(char ref,std::string bases, std::string qualities, uint8_t min_qual);
 //for use in consensus thresholding
-//int check_allele_exists(uint32_t position, std::string nucleotide, std::vector<position> all_positions);
 void update_allele_depth(std::vector<position> &all_positions, std::vector<std::string> nucleotides, std::vector<uint32_t> positions);
 
 void print_allele_depths(std::vector<allele> ad);

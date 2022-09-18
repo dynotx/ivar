@@ -19,6 +19,7 @@ void print_allele_depths(std::vector<allele> ad){
 }
 
 int check_allele_exists(std::string n, std::vector<allele> ad){
+
   for(std::vector<allele>::iterator it = ad.begin(); it != ad.end(); ++it) {
     if(it->nuc.compare(n) == 0){
       return it - ad.begin();
@@ -39,22 +40,25 @@ int find_ref_in_allele(std::vector<allele> ad, char ref){
   return -1;
 }
 
-//overload function for checking if an allele at a position exists as reads are iterated
-/*int check_allele_exists(uint32_t position, std::string nucleotide, std::vector<position> all_positions){
-  *
-   * @param position : the position relative to the reference
-   * @param nucleotide : the nucleotides to place
-   * @param ad : vector holding all alleles for all positions
+//overload function for checking if a position exists in the postion vector
+int check_pos_exists(uint32_t pos, std::vector<position> all_positions){
+  /*
+   * @param pos : the position relative to the reference
+   * @param all_positions : vector holding all positions
    *
-   * Function takes the allele vector for the entire bam file and checks if an allele already exists at
-   * a position. Return 1 for both positon and allele exist, return 0 for neither exit, and return -1
-   * for position exists but not allele.
-   *
-  std::cout << position << " " << nucleotide << std::endl;
-  all_positions.clear();
-  return(0);
+   * Check if a positon exists in record. Return -1 if not found else return
+   * the index of the matching position.
+   */
 
-}*/
+  int count = 0;
+  for(std::vector<position>::iterator it = all_positions.begin(); it != all_positions.end(); ++it) {
+    if(it->pos == pos){
+      return(count);
+    }
+    count += 1;
+  }
+  return(-1);
+}
 
 //overload function for storing alleles depths as reads are iterated
 void update_allele_depth(std::vector<position> &all_positions, std::vector<std::string> nucleotides, std::vector<uint32_t> positions){
@@ -70,23 +74,40 @@ void update_allele_depth(std::vector<position> &all_positions, std::vector<std::
 
   //iterate over the variants
   for(uint32_t i = 0; i < nucleotides.size(); i++){
-    //we have seen this allele before
-    /*if(check_allele_exists(positions[i], nucleotides[i], all_positions) == 0){
-      std::cout << "allele found " << positions[i] << " " << nucleotides[i] << std::endl;
-    } else if(check_allele_exists(positions[i], nucleotides[i], all_positions) == -1) {
-      std::cout << "posistion found not allele" << std::endl;
-    }else{
-      std::cout << "allele not found " << positions[i] << " " << nucleotides[i] << std::endl;
-      all_positions.clear();
-      add_base.nuc = nucleotides[i];
-      add_base.beg = positions[i];
-      add_base.depth = 1;
-      ad.push_back(add_base);
-      
-    }*/
-    std::cout << positions[i] << " " << nucleotides[i] << std::endl;
-    all_positions.clear();
+    int location = check_pos_exists(positions[i], all_positions);
+    
+    //this position already exists
+    if(location != -1){
+      all_positions[location].depth += 1;
+      int allele_location = check_allele_exists(nucleotides[i], all_positions[location].ad);
+      //allele doesn't exist
+      if(allele_location == -1){
+        allele new_allele;
+        new_allele.depth = 1;
+        new_allele.nuc = nucleotides[i];
+        all_positions[location].ad.push_back(new_allele);
+      }else{ //allele exists
+        all_positions[location].ad[allele_location].depth += 1;
+      }
+    }else{ //add the position to the vector
+      position new_position;
+      new_position.pos = positions[i];
+      allele new_allele;
+      new_allele.depth = 1;
+      new_allele.nuc = nucleotides[i];
+      new_position.ad.push_back(new_allele);
+      new_position.depth = 1;
+      all_positions.push_back(new_position); 
+    }
   }
+
+  //test lines
+  /*for(uint32_t t = 0; t < all_positions.size(); t++){
+    position test = all_positions[t];
+    std::cout << "\n";
+    std::cout << "pos " << test.pos << std::endl;  
+    print_allele_depths(test.ad);
+    }*/
     
 }
 
