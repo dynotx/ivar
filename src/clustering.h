@@ -36,4 +36,5 @@ std::vector<float> calculate_cluster_centers(alglib::real_2d_array X, alglib::km
 float cluster_point_distances(alglib::real_2d_array X, alglib::kmeansreport rep, float point, float center, int n_clusters);
 void calculate_sil_score(alglib::real_2d_array X, alglib::kmeansreport rep,int n_clusters, cluster &cluster_results);
 void determine_threshold(std::string bam, std::string bed, std::string pair_info, int32_t primer_offset);
+std::string decoded_nucs(int tmp);
 #endif

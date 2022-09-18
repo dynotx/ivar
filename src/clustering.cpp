@@ -18,6 +18,9 @@
 #include "clustering.h"
 using namespace alglib;
 
+
+
+
 std::vector<std::vector<uint32_t>> transpose(const std::vector<std::vector<uint32_t>> data) {
   // this assumes that all inner vectors have the same size and
   // allocates space for the complete result in advance
@@ -112,6 +115,37 @@ float average(std::vector<float> x){
   }
   return(sumTotal / x.size());
 }
+
+std::string decoded_nucs(int tmp){
+  /*
+   * @param tmp : integer value encoding for a nucleotide
+   * @return dencoded_nuc : nucleotide sequence as a string
+   *
+   * Encoded the char passed using the following system:
+   * A:0, C:1, G:2, T:3, D:4, I:5, S:6
+   *
+   * TODO could be a case-switch?
+   */
+  std::string dencoded_nuc = "XXX";
+  
+  if (tmp == 0) {
+    dencoded_nuc = "A";
+  }else if(tmp == 1){
+    dencoded_nuc = "C";
+  }else if (tmp == 2){
+    dencoded_nuc = "G";
+  }else if(tmp == 3){
+    dencoded_nuc = "T";
+  }else if(tmp == 4){
+    dencoded_nuc = "D";
+  }else if(tmp == 5){
+    dencoded_nuc = "I";
+  }else if(tmp == 6){
+    dencoded_nuc = "S";
+  }
+  return(dencoded_nuc);
+}
+
 
 int encoded_nucs(std::string &tmp){
   /*
@@ -710,9 +744,9 @@ void determine_threshold(std::string bam, std::string bed, std::string pair_info
   }
   //remove low level noise
   amplicons.remove_low_noise(all_positions);
-
+  
   //amplicons.print_amplicon_summary();  
-  amplicons.dump_amplicon_summary(output_amplicon);
+  //amplicons.dump_amplicon_summary(output_amplicon);
 
   //reshape it into a real 2d array for alglib
   //alglib::real_2d_array xy;
