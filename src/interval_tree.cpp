@@ -81,8 +81,7 @@ void IntervalTree::inOrder(ITNode *root){
   inOrder(root->right);
 }
 
-std::vector<std::pair<std::uint32_t, int>>  _trim_read_positions(std::vector<int> haplotypes, std::vector<uint32_t> positions, uint32_t lower_bound,
-    uint32_t upper_bound){
+std::vector<std::pair<std::uint32_t, int>>  _trim_read_positions(std::vector<int> haplotypes, std::vector<uint32_t> positions, uint32_t lower_bound, uint32_t upper_bound){
   
   /* @param haplotypes : vector containing haplotype information
    * @param positions : vector containing the positions 
@@ -253,13 +252,29 @@ void IntervalTree::print_amplicon_summary(ITNode *root){
   print_amplicon_summary(root->right);
 }
 
-
+//potential point for optimization
 void IntervalTree::remove_low_noise(ITNode *root, std::vector<position> all_positions){
-  if (root == NULL) return;
-  //print position info
-  //if(root->read_count > 0){
-  //  
-  //}
+  if (root == NULL) return; 
+  if ((root->read_count != 0) && (root->final_positions.size() > 0)){
+    for(uint32_t i = 0; i < all_positions.size(); i++){
+      int last_element = root->final_positions.size() - 1;
+      //we've exceeded the largest position in this haplotypes
+      if(all_positions[i].pos > root->final_positions[last_element]){
+        break;
+      }
+      //search for the position
+      for(uint32_t x = 0; x < root->final_positions.size(); x++){
+        if(root->final_positions[x] == all_positions[i].pos){
+          uint32_t pos_depth = all_positions[i].depth;
+          std::cout << pos_depth << std::endl;
+          //int nt = root->final_haplotypes[x];
+          for(allele y: all_positions[i].ad){
+            std::cout << y.nuc << " " << y.depth << std::endl;
+          }
+        }
+      }
+    }
+  }
   remove_low_noise(root->right, all_positions);
 }
 

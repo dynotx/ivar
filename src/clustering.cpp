@@ -703,16 +703,16 @@ void determine_threshold(std::string bam, std::string bed, std::string pair_info
     iterate_reads(aln, amplicons, all_positions);
   }
 
-  //remove low level noise
-  amplicons.remove_low_noise(all_positions);
-
   //extract those reads into a format useable in the clustering
   std::vector<float> all_frequencies = create_frequency_matrix(amplicons);
   for(float freq:all_frequencies){
     std::cout << freq << std::endl;
   }
+  //remove low level noise
+  amplicons.remove_low_noise(all_positions);
+
   //amplicons.print_amplicon_summary();  
-  //amplicons.dump_amplicon_summary(output_amplicon);
+  amplicons.dump_amplicon_summary(output_amplicon);
 
   //reshape it into a real 2d array for alglib
   //alglib::real_2d_array xy;
