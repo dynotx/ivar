@@ -18,9 +18,6 @@
 #include "clustering.h"
 using namespace alglib;
 
-
-
-
 std::vector<std::vector<uint32_t>> transpose(const std::vector<std::vector<uint32_t>> data) {
   // this assumes that all inner vectors have the same size and
   // allocates space for the complete result in advance
@@ -178,13 +175,13 @@ int encoded_nucs(std::string &tmp){
 
 void parse_md_tag(uint8_t *aux, std::vector<int> &haplotypes, std::vector<uint32_t> &positions,
     uint32_t abs_start_pos, std::vector<position> &all_positions,
-    uint8_t *seq, uint32_t length, uint32_t correction_factor){
+    uint8_t *seq, uint32_t length, uint32_t correction_factor, uint32_t abs_end_pos,
+    std::vector<uint32_t> ignore_positions){
   /*
    * @param aux : the md tag
    * @param haplotypes : vector with encoded nuc haplotypes
    * @param positions : the positions of sub,ins, and dels that make the haplotype
    * @param abs_start_pos : the start position relative to the reference (is actually abs_end_pos) if reverse
-   * @param reverse : whether this is a reverse read or not
    * @param ad : vector containing variant alleles
    * @param seq : pointer to the sequence
    *
@@ -196,7 +193,12 @@ void parse_md_tag(uint8_t *aux, std::vector<int> &haplotypes, std::vector<uint32
   if(correction_factor == 0){
     correction_factor = -1;
   }
+  //also record the pos that match the reference
+  std::vector<uint32_t> ref_pos;
+  std::vector<std::string> ref_nt;
+
   //std::cout << "aux " << aux << std::endl;
+  //std::cout << "abs start pos " << abs_start_pos << " abs end pos " << abs_end_pos << std::endl;
   bool deletion = false; //helping track the deletions
   std::string digits; //helping to track number operations 
   std::string nucs;
@@ -255,6 +257,21 @@ void parse_md_tag(uint8_t *aux, std::vector<int> &haplotypes, std::vector<uint32
     }
     i++;
   } while(aux[i] != '\0');
+
+  //fill out the reference matching position too
+  for(uint32_t z = length; z < abs_end_pos; z++){
+    std::vector<uint32_t>::iterator it = std::find(positions.begin(), positions.end(), z+1);
+    std::vector<uint32_t>::iterator it_ignore = std::find(ignore_positions.begin(), ignore_positions.end(), z+1);
+    //position wasn't found to be a variant and wasn't found in soft clipped regions
+    if(it == positions.end() && it_ignore == ignore_positions.end()){
+      ref_pos.push_back(z+1);
+      //std::cout << z+1 << " " << seq_nt16_str[bam_seqi(seq, z-length+correction_factor-1)] << std::endl;
+      nt = seq_nt16_str[bam_seqi(seq, z-length+correction_factor-1)];
+      ref_nt.push_back(nt);
+    }
+  }
+  //std::cout << "\n";
+  update_allele_depth(all_positions, ref_nt, ref_pos);
   update_allele_depth(all_positions, nucleotides, positions);
 }
 
@@ -436,6 +453,7 @@ void iterate_reads(bam1_t *r, IntervalTree &amplicons, std::vector<position> &al
   //these will later be place in the amplicon object
   std::vector<int> haplotypes;
   std::vector<uint32_t> positions;
+  std::vector<uint32_t> ignore_positions; //all positions that are soft clipped
   uint32_t insertion_pos = 0;
   std::string nucs;
   uint32_t correction_factor = 0;
@@ -456,6 +474,7 @@ void iterate_reads(bam1_t *r, IntervalTree &amplicons, std::vector<position> &al
     if(op == 4 && first_pass){
       correction_factor = op_len + 1;
       first_pass = false;
+      ignore_positions.push_back(abs_start_pos+start);
     }
     if(op != 4){ first_pass = false;}
 
@@ -484,7 +503,7 @@ void iterate_reads(bam1_t *r, IntervalTree &amplicons, std::vector<position> &al
     i++;
   }
   
-  parse_md_tag(aux, haplotypes, positions, abs_start_pos, all_positions, seq, abs_start_pos, correction_factor);
+  parse_md_tag(aux, haplotypes, positions, abs_start_pos, all_positions, seq, abs_start_pos, correction_factor, abs_end_pos, ignore_positions);
   //reoder the positions to be consistene
   reorder_haplotypes(haplotypes, positions);
   //places haplotype on amplicon node
@@ -706,9 +725,10 @@ void determine_threshold(std::string bam, std::string bed, std::string pair_info
     all_positions.push_back(new_position);
   }
 
+
+
   std::string output_amplicon = "amplicon.txt";
   //initialize haplotype data structure
-  //std::vector<haplotype> track_haplotypes;
   std::vector<primer> primers;
   IntervalTree amplicons;
   //populate primer, and primer pairs
@@ -719,6 +739,7 @@ void determine_threshold(std::string bam, std::string bed, std::string pair_info
   
   hts_idx_t *idx = sam_index_load(in, bam.c_str());
   bam_hdr_t *header = sam_hdr_read(in);
+
   bam1_t *aln = bam_init1();
   hts_itr_t *iter = NULL;
   std::string region_;
@@ -746,7 +767,7 @@ void determine_threshold(std::string bam, std::string bed, std::string pair_info
   amplicons.remove_low_noise(all_positions);
   
   //amplicons.print_amplicon_summary();  
-  //amplicons.dump_amplicon_summary(output_amplicon);
+  amplicons.dump_amplicon_summary(output_amplicon);
 
   //reshape it into a real 2d array for alglib
   //alglib::real_2d_array xy;

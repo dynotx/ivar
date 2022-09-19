@@ -54,6 +54,7 @@ void print_usage(){
     "       variants       Call variants from aligned BAM file\n"
     " filtervariants       Filter variants across replicates or samples\n"
     "      consensus       Call consensus from aligned BAM file\n"
+    "  autoconsensus       Call consensus from aligned BAM file using automatic thresholding\n"
     "      getmasked       Detect primer mismatches and get primer indices for the amplicon to be masked\n"
     "    removereads       Remove reads from trimmed BAM file\n"
     "        version       Show version information\n"
@@ -106,6 +107,37 @@ void print_filtervariants_usage(){
 }
 
 void print_consensus_usage(){
+  std::cout <<
+    "Usage: samtools mpileup -aa -A -d 0 -Q 0 <input.bam> | ivar consensus -p <prefix> \n\n"
+    "Note : samtools mpileup output must be piped into `ivar consensus`\n\n"
+    "Input Options    Description\n"
+    "           -q    Minimum quality score threshold to count base (Default: 20)\n"
+    "           -t    Minimum frequency threshold(0 - 1) to call consensus. (Default: 0)\n"
+    "                 Frequently used thresholds | Description\n"
+    "                 ---------------------------|------------\n"
+    "                                          0 | Majority or most common base\n"
+    "                                        0.2 | Bases that make up atleast 20% of the depth at a position\n"
+    "                                        0.5 | Strict or bases that make up atleast 50% of the depth at a position\n"
+    "                                        0.9 | Strict or bases that make up atleast 90% of the depth at a position\n"
+    "                                          1 | Identical or bases that make up 100% of the depth at a position. Will have highest ambiguities\n"
+    "           -c    Minimum insertion frequency threshold(0 - 1) to call consensus. (Default: 0.8)\n"
+    "                 Frequently used thresholds | Description\n"
+    "                 ---------------------------|------------\n"
+    "                                          0 | Allow insertion if it appears even once\n"
+    "                                        0.2 | Insertions with at least 20% of the depth at a position\n"
+    "                                        0.5 | Insertion with at least 50% of the depth at a position\n"
+    "                                        0.9 | Insertions with at least 90% of the depth at a position\n"
+    "                                          1 | Insertion with 100% of the depth at a position. Will have highest ambiguities\n"
+    "           -m    Minimum depth to call consensus(Default: 10)\n"
+    "           -k    If '-k' flag is added, regions with depth less than minimum depth will not be added to the consensus sequence. Using '-k' will override any option specified using -n \n"
+    "           -n    (N/-) Character to print in regions with less than minimum coverage(Default: N)\n\n"
+    "Output Options   Description\n"
+    "           -p    (Required) Prefix for the output fasta file and quality file\n"
+    "           -i    (Optional) Name of fasta header. By default, the prefix is used to create the fasta header in the following format, Consensus_<prefix>_threshold_<frequency-threshold>_quality_<minimum-quality>_<min-insert-threshold>\n"
+    "           -f    (Optional) Primer pair file .tsv\n";
+}
+//TODO
+void print_autoconsensus_usage(){
   std::cout <<
     "Usage: samtools mpileup -aa -A -d 0 -Q 0 <input.bam> | ivar consensus -p <prefix> \n\n"
     "Note : samtools mpileup output must be piped into `ivar consensus`\n\n"
@@ -398,9 +430,6 @@ int main(int argc, char* argv[]){
       print_consensus_usage();
       return -1;
     }
-    if(g_args.primer_pair_file != ""){
-      //determine_threshold(std::cin);
-    }
     g_args.prefix = get_filename_without_extension(g_args.prefix,".fa");
     g_args.prefix = get_filename_without_extension(g_args.prefix,".fasta");
     g_args.gap = (g_args.gap != 'N' && g_args.gap != '-') ? 'N' : g_args.gap; // Accept only N or -
@@ -413,7 +442,79 @@ int main(int argc, char* argv[]){
     else
       std::cout << "Regions with depth less than minimum depth covered by: " << g_args.gap << std::endl;
     res = call_consensus_from_plup(std::cin, g_args.seq_id, g_args.prefix, g_args.min_qual, g_args.min_threshold, g_args.min_depth, g_args.gap, g_args.keep_min_coverage, g_args.min_insert_threshold);
-  } else if (cmd.compare("removereads") == 0){
+  } 
+
+  // ivar autoconsensus
+  else if (cmd.compare("autoconsensus") == 0){
+    opt = getopt( argc, argv, consensus_opt_str);
+    g_args.seq_id = "";
+    g_args.min_depth = 10;
+    g_args.gap = 'N';
+    g_args.min_qual = 20;
+    g_args.keep_min_coverage = true;
+    g_args.min_insert_threshold = 0.8;
+    g_args.primer_pair_file ="";
+    while( opt != -1 ) {
+      switch( opt ) {
+      case 'c':
+	g_args.min_insert_threshold = atof(optarg);
+	break;
+       case 'i':
+	g_args.seq_id = optarg;
+	break;
+      case 'p':
+	g_args.prefix = optarg;
+	break;
+      case 'm':
+	g_args.min_depth = std::stoi(optarg);
+	break;
+      case 'n':
+	g_args.gap = optarg[0];
+	break;
+      case 'q':
+	g_args.min_qual = std::stoi(optarg);
+	break;
+      case 'k':
+	g_args.keep_min_coverage = false;
+      case 'f':
+  g_args.primer_pair_file = optarg;
+  break;
+      case 'g':
+	break;
+      case 'h':
+      case '?':
+	print_autoconsensus_usage();
+	return 0;
+	break;
+      }
+      opt = getopt( argc, argv, consensus_opt_str);
+    }
+    if(g_args.prefix.empty()){
+      print_consensus_usage();
+      return -1;
+    }
+    if(isatty(STDIN_FILENO)){
+      std::cout << "Please pipe mpileup into `ivar consensus` command.\n\n";
+      print_consensus_usage();
+      return -1;
+    }
+    g_args.prefix = get_filename_without_extension(g_args.prefix,".fa");
+    g_args.prefix = get_filename_without_extension(g_args.prefix,".fasta");
+    g_args.gap = (g_args.gap != 'N' && g_args.gap != '-') ? 'N' : g_args.gap; // Accept only N or -
+    /*std::cout <<"Minimum Quality: " << (uint16_t) g_args.min_qual << std::endl;
+    std::cout << "Threshold: " << g_args.min_threshold << std::endl;
+    std::cout << "Minimum depth: " << (unsigned) g_args.min_depth << std::endl;
+    std::cout << "Minimum Insert Threshold: " << g_args.min_insert_threshold << std::endl;
+    */
+    if(!g_args.keep_min_coverage)
+      //std::cout << "Regions with depth less than minimum depth will not added to consensus" << std::endl;
+    else
+      //std::cout << "Regions with depth less than minimum depth covered by: " << g_args.gap << std::endl;
+    res = determine_threshold("../data/contamination_tests/test.calmd.bam", "../data/contamination_tests/sars_primers_strand.bed", "..    /data/contamination_tests/primer_pairs.tsv", 0);
+  } 
+
+  //ivar removereads
+  else if (cmd.compare("removereads") == 0){
     opt = getopt( argc, argv, removereads_opt_str);
     while( opt != -1 ) {
       switch( opt ) {
@@ -451,7 +552,9 @@ int main(int argc, char* argv[]){
     g_args.prefix = get_filename_without_extension(g_args.prefix,".bam");
     res = rmv_reads_from_amplicon(g_args.bam, g_args.region, g_args.prefix, amp, g_args.bed, cl_cmd.str());
     
-  } else if(cmd.compare("filtervariants") == 0){
+  } 
+  //ivar filtervariants
+  else if(cmd.compare("filtervariants") == 0){
     opt = getopt( argc, argv, filtervariants_opt_str);
     g_args.min_threshold = 1;
     while( opt != -1 ) {
