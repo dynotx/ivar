@@ -212,6 +212,7 @@ void print_version_info(){
 static const char *trim_opt_str = "i:b:f:x:p:m:q:s:ekh?";
 static const char *variants_opt_str = "p:t:q:m:r:g:h?";
 static const char *consensus_opt_str = "i:p:q:t:c:m:n:kfh?";
+static const char *autoconsensus_opt_str = "i:b:p:q:t:c:m:n:kfh?";
 static const char *removereads_opt_str = "i:p:t:b:h?";
 static const char *filtervariants_opt_str = "p:t:f:h?";
 static const char *getmasked_opt_str = "i:b:f:p:h?";
@@ -446,75 +447,16 @@ int main(int argc, char* argv[]){
 
   // ivar autoconsensus
   else if (cmd.compare("autoconsensus") == 0){
-    opt = getopt( argc, argv, consensus_opt_str);
-    g_args.bam = "";
+    opt = getopt( argc, argv, autoconsensus_opt_str);
+    g_args.seq_id = "/Users/caceves/Desktop/ivar/data/contamination_tests/simulated_alpha_beta_90_10.bam";
+    g_args.min_threshold = 0;
     g_args.min_depth = 10;
     g_args.gap = 'N';
-    g_args.bed = "";
     g_args.min_qual = 20;
     g_args.keep_min_coverage = true;
     g_args.min_insert_threshold = 0.8;
-    g_args.primer_pair_file ="";
-    while( opt != -1 ) {
-      switch( opt ) {
-      case 'b':
-  g_args.bed = optarg;
-  break;
-      case 'c':
-	g_args.min_insert_threshold = atof(optarg);
-	break;
-       case 'i':
-	g_args.bam = optarg;
-	break;
-      case 'p':
-	g_args.prefix = optarg;
-	break;
-      case 'm':
-	g_args.min_depth = std::stoi(optarg);
-	break;
-      case 'n':
-	g_args.gap = optarg[0];
-	break;
-      case 'q':
-	g_args.min_qual = std::stoi(optarg);
-	break;
-      case 'k':
-	g_args.keep_min_coverage = false;
-      case 'f':
-  g_args.primer_pair_file = optarg;
-  break;
-      case 'g':
-	break;
-      case 'h':
-      case '?':
-	print_autoconsensus_usage();
-	return 0;
-	break;
-      }
-      opt = getopt( argc, argv, consensus_opt_str);
-    }
-    if(g_args.prefix.empty()){
-      print_consensus_usage();
-      return -1;
-    }
-    if(isatty(STDIN_FILENO)){
-      std::cout << "Please pipe mpileup into `ivar consensus` command.\n\n";
-      print_consensus_usage();
-      return -1;
-    }
-    g_args.prefix = get_filename_without_extension(g_args.prefix,".fa");
-    g_args.prefix = get_filename_without_extension(g_args.prefix,".fasta");
-    g_args.gap = (g_args.gap != 'N' && g_args.gap != '-') ? 'N' : g_args.gap; // Accept only N or -
-    std::cout <<"Minimum Quality: " << (uint16_t) g_args.min_qual << std::endl;
-    std::cout << "Threshold: " << g_args.min_threshold << std::endl;
-    std::cout << "Minimum depth: " << (unsigned) g_args.min_depth << std::endl;
-    std::cout << "Minimum Insert Threshold: " << g_args.min_insert_threshold << std::endl;
-    
-    if(!g_args.keep_min_coverage)
-      std::cout << "Regions with depth less than minimum depth will not added to consensus" << std::endl;
-    else
-      std::cout << "Regions with depth less than minimum depth covered by: " << g_args.gap << std::endl;
-    determine_threshold(g_args.bam, g_args.bed, g_args.primer_pair_file, 0);
+    g_args.primer_pair_file ="/Users/caceves/Desktop/ivar/data/contamination_tests/primer_pairs.tsv";
+   res = determine_threshold(g_args.seq_id, "/Users/caceves/Desktop/ivar/data/contamination_tests/sars_primers_strand.bed", g_args.primer_pair_file, 0);
   } 
 
   //ivar removereads
