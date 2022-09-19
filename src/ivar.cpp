@@ -447,20 +447,24 @@ int main(int argc, char* argv[]){
   // ivar autoconsensus
   else if (cmd.compare("autoconsensus") == 0){
     opt = getopt( argc, argv, consensus_opt_str);
-    g_args.seq_id = "";
+    g_args.bam = "";
     g_args.min_depth = 10;
     g_args.gap = 'N';
+    g_args.bed = "";
     g_args.min_qual = 20;
     g_args.keep_min_coverage = true;
     g_args.min_insert_threshold = 0.8;
     g_args.primer_pair_file ="";
     while( opt != -1 ) {
       switch( opt ) {
+      case 'b':
+  g_args.bed = optarg;
+  break;
       case 'c':
 	g_args.min_insert_threshold = atof(optarg);
 	break;
        case 'i':
-	g_args.seq_id = optarg;
+	g_args.bam = optarg;
 	break;
       case 'p':
 	g_args.prefix = optarg;
@@ -501,16 +505,16 @@ int main(int argc, char* argv[]){
     g_args.prefix = get_filename_without_extension(g_args.prefix,".fa");
     g_args.prefix = get_filename_without_extension(g_args.prefix,".fasta");
     g_args.gap = (g_args.gap != 'N' && g_args.gap != '-') ? 'N' : g_args.gap; // Accept only N or -
-    /*std::cout <<"Minimum Quality: " << (uint16_t) g_args.min_qual << std::endl;
+    std::cout <<"Minimum Quality: " << (uint16_t) g_args.min_qual << std::endl;
     std::cout << "Threshold: " << g_args.min_threshold << std::endl;
     std::cout << "Minimum depth: " << (unsigned) g_args.min_depth << std::endl;
     std::cout << "Minimum Insert Threshold: " << g_args.min_insert_threshold << std::endl;
-    */
+    
     if(!g_args.keep_min_coverage)
-      //std::cout << "Regions with depth less than minimum depth will not added to consensus" << std::endl;
+      std::cout << "Regions with depth less than minimum depth will not added to consensus" << std::endl;
     else
-      //std::cout << "Regions with depth less than minimum depth covered by: " << g_args.gap << std::endl;
-    res = determine_threshold("../data/contamination_tests/test.calmd.bam", "../data/contamination_tests/sars_primers_strand.bed", "..    /data/contamination_tests/primer_pairs.tsv", 0);
+      std::cout << "Regions with depth less than minimum depth covered by: " << g_args.gap << std::endl;
+    determine_threshold(g_args.bam, g_args.bed, g_args.primer_pair_file, 0);
   } 
 
   //ivar removereads
