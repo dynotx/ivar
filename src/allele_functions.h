@@ -7,7 +7,7 @@
 
 struct allele{
   std::string nuc;
-  uint32_t depth;
+  float depth;
   uint32_t reverse;
   uint8_t mean_qual;
   uint32_t beg;
@@ -26,7 +26,7 @@ struct allele{
 struct position{
   std::vector<allele> ad; //all possible alleles at this position
   uint32_t pos = 0; //positions relative to the reference
-  uint32_t depth = 0; //total ungapped depth at the position
+  float depth = 0; //total ungapped depth at the position
 };
 
 int check_allele_exists(std::string n, std::vector<allele> ad);
