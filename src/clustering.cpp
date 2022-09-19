@@ -708,7 +708,7 @@ std::vector<float> create_frequency_matrix(IntervalTree &amplicons){
 }
 
 //entry point for threshold determination
-void determine_threshold(std::string bam, std::string bed, std::string pair_info, int32_t primer_offset = 0){
+int determine_threshold(std::string bam, std::string bed, std::string pair_info, int32_t primer_offset = 0){
   /*
    * @param bam : path to the bam file
    * @param bed : path to the bed file
@@ -787,6 +787,6 @@ void determine_threshold(std::string bam, std::string bed, std::string pair_info
   for(float x: cluster_results.centers){
     std::cout << x << std::endl;
   }*/
-
+  return 0;
 }
 
