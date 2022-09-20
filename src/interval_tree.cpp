@@ -283,7 +283,6 @@ void IntervalTree::remove_low_noise(ITNode *root, std::vector<position> all_posi
               if(decoded_nuc.compare(al.nuc) == 0){
                 //this is a low level allele to be removed
                 if(al.depth/total_depth < 0.03){
-                  std::cout << "here" << std::endl;
                   //remove it from haplotype positions
                   root->final_positions.erase(root->final_positions.begin()+index);            
                   root->frequency.erase(root->frequency.begin()+index);
@@ -297,7 +296,6 @@ void IntervalTree::remove_low_noise(ITNode *root, std::vector<position> all_posi
         if(erase_pos){
           int c = 0;
           for(std::vector<int> f_haplo: root->final_haplotypes){
-            std::cout << c << std::endl;
             f_haplo.erase(f_haplo.begin()+index); 
             root->final_haplotypes[c] = f_haplo; //this doesn't work
             c += 1;
