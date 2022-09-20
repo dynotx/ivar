@@ -260,43 +260,49 @@ void IntervalTree::remove_low_noise(ITNode *root, std::vector<position> all_posi
   if (root == NULL) return; 
   //make sure we have varitants for this haplotype
   if ((root->read_count != 0) && (root->final_positions.size() > 0)){
+     
     //iterate through all positions
     for(uint32_t i = root->data->low-1; i < root->data->high+1; i++){
       uint32_t total_pos = all_positions[i].pos;
-      uint32_t total_depth = all_positions[i].depth;
+      float total_depth = all_positions[i].depth;
       std::vector<allele> total_alleles = all_positions[i].ad;
+      bool erase_pos = false; //hold the positions relative to the haplotypes to remove
 
       //search for the position in the haplotypes for this amplicon
       std::vector<uint32_t>::iterator it = std::find(root->final_positions.begin(), root->final_positions.end(), total_pos);
+      
       //if we did find this position in our haplotypes for this amplicon
       if(it != root->final_positions.end()){
         uint32_t index = it - root->final_positions.begin(); //location of the found position
-               
         for(uint32_t y = 0; y < root->final_haplotypes.size(); y++){
           std::vector<int> haplo = root->final_haplotypes[y];
           int amp_nt = haplo[index];
           std::string decoded_nuc = decoded_nucs(amp_nt);
-          if(amp_nt >= 0){
+          if(amp_nt >= 0){ // successfully decoded nuc
             for(allele al: total_alleles){
               if(decoded_nuc.compare(al.nuc) == 0){
                 //this is a low level allele to be removed
                 if(al.depth/total_depth < 0.03){
+                  std::cout << "here" << std::endl;
                   //remove it from haplotype positions
-                  root->final_positions.erase(root->final_positions.begin()+index);
-              
-                  //root->frequency.erase(root->frequency.begin()+index);
-                  int c = 0;
-                  //remove it from actual haplotypes
-                  for(std::vector<int> f_haplo: root->final_haplotypes){
-                    f_haplo.erase(f_haplo.begin()+index); 
-                    root->final_haplotypes[c] = f_haplo;
-                    c += 1;
-                  }
+                  root->final_positions.erase(root->final_positions.begin()+index);            
+                  root->frequency.erase(root->frequency.begin()+index);
+                  erase_pos = true;
                 }
               }
             }
           }
         }
+        //remove it from actual haplotypes
+        if(erase_pos){
+          int c = 0;
+          for(std::vector<int> f_haplo: root->final_haplotypes){
+            std::cout << c << std::endl;
+            f_haplo.erase(f_haplo.begin()+index); 
+            root->final_haplotypes[c] = f_haplo; //this doesn't work
+            c += 1;
+          }
+        } 
       }
     }
   }
