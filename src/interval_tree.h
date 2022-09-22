@@ -48,24 +48,22 @@ private:
   void insert(ITNode *root, Interval data);
   bool envelopSearch(ITNode *root, Interval data);
   void inOrder(ITNode * root); //prints amplicons starts and ends
-  void remove_low_noise(ITNode *root, std::vector<position> all_positions); //prints haplotypes and positions
   void print_amplicon_summary(ITNode *root); //prints summary of unique haplotypes and frequencies
   void dump_amplicon_summary(ITNode *root, std::string filename); //dump amplicon summaries to json file
   void find_amplicon_per_read(ITNode *root, uint32_t start, uint32_t end, std::vector<int> haplotypes, 
-      std::vector<uint32_t> positions, bool reverse, std::vector<uint32_t> ranges);
+      std::vector<uint32_t> positions, bool reverse, std::vector<uint32_t> ranges, std::vector<position> &all_positions);
 
 public:
   IntervalTree();  // constructor
   void insert(Interval data){ insert(_root, data);}
   bool envelopSearch(Interval data){ return envelopSearch(_root, data);}
   void inOrder() {inOrder(_root);}
-  void remove_low_noise(std::vector<position> all_positions) {remove_low_noise(_root, all_positions);}
   void print_amplicon_summary() {print_amplicon_summary(_root);}
   void dump_amplicon_summary(std::string filename) {dump_amplicon_summary(_root, filename);}
   ITNode *iterate_nodes(ITNode *root); //used to returns nodes iteratively
   ITNode *iterate_nodes(){return iterate_nodes(_root);}
   void find_amplicon_per_read(uint32_t start, uint32_t end, std::vector<int> haplotypes, 
-      std::vector<uint32_t> positions, bool reverse, std::vector<uint32_t> ranges){find_amplicon_per_read(_root, start, end, haplotypes, positions, reverse, ranges);}
+      std::vector<uint32_t> positions, bool reverse, std::vector<uint32_t> ranges, std::vector<position> &all_positions){find_amplicon_per_read(_root, start, end, haplotypes, positions, reverse, ranges, all_positions);}
 };
 
 IntervalTree populate_amplicons(std::string pair_info_file, std::vector<primer> &primers);
