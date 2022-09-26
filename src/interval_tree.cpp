@@ -97,7 +97,7 @@ std::vector<std::pair<std::uint32_t, int>>  _trim_read_positions(std::vector<int
   std::vector<uint32_t> new_positions;
   for(uint32_t i=0; i < haplotypes.size(); i++){
     //in range of the amplicon
-    if((positions[i] > lower_bound) && (positions[i] < upper_bound)){
+    if((positions[i] >= lower_bound) && (positions[i] <= upper_bound)){
       new_haplotypes.push_back(haplotypes[i]);
       new_positions.push_back(positions[i]);
     }
@@ -127,10 +127,14 @@ void IntervalTree::find_amplicon_per_read(ITNode *root, uint32_t start, uint32_t
   if (root == NULL) return;
   //yes karthik, I know this is poorly written
   if(reverse){
-    if((root->data->high_inner - 10 < end) && (root->data->high_inner + 10 > end)){
-        //for(uint32_t p = 0; p < positions.size(); p++){
-        //  std::cout << "ready to add " << positions[p] << " " << haplotypes[p] << std::endl;
-       //}
+    if((root->data->high_inner+1 - 10 < end) && (root->data->high_inner + 10 + 1 > end)){
+       if(root->data->low == 1285){
+         for(uint32_t y = 0; y < positions.size(); y++){
+            if(haplotypes[y] >= 0){
+              std::cout << positions[y] << " " << haplotypes[y] << "\n";
+            }
+          }
+       }
        //we go through this additional step where we chop off positions not within the amplicon
         std::vector<std::pair<std::uint32_t, int>> zipped = _trim_read_positions(haplotypes, positions, 
           root->data->low, root->data->high);
@@ -149,7 +153,7 @@ void IntervalTree::find_amplicon_per_read(ITNode *root, uint32_t start, uint32_t
         return;
     }
   }else{
-    if((root->data->low_inner - 10 < start) && (root->data->low_inner + 10 >  start)){
+    if((root->data->low_inner - 10 - 1 < start) && (root->data->low_inner + 10 - 1 >  start)){
        std::vector<std::pair<std::uint32_t, int>> zipped = _trim_read_positions(haplotypes, positions, 
           root->data->low, root->data->high);
         if(zipped.size() == 0){return;}
@@ -192,23 +196,25 @@ void IntervalTree::dump_amplicon_summary(ITNode *root, std::string filename){
     file << root->data->high << "\t";
     file << root->read_count << "\t";  
     int count = 0;
-    std::cout << "low: " << root->data->low << " high " << root->data->high << " read count " << root->read_count << std::endl;
     std::string positions;
+    //std::cout << root->data->low << " " << root->data->high << std::endl;
     for(uint32_t x:root->final_positions){
-      std::cout << x << "_";
+      //std::cout << x << " ";
       if(count !=0){ positions += "_";}
       count += 1;
       positions += std::to_string(x);
     }
-    std::cout << "\n";
+    //std::cout << "\n";
     file << positions << "\t"; 
     std::string frequency;
     count = 0;
     for(float i:root->frequency){
+      //std::cout << i << " ";
       if(count !=0){frequency += "_";}
       count += 1;
       frequency += std::to_string(i);
     }
+    //std::cout << "\n";
     file << frequency << "\t";
     
     std::string haplotypes;
@@ -217,14 +223,13 @@ void IntervalTree::dump_amplicon_summary(ITNode *root, std::string filename){
     int count_tmp = 0;
     //something weird going on with this
     for(std::vector<int> hap:root->final_haplotypes){
-      std::cout << "new haplotype" << std::endl;
       for(int h:hap){
-        std::cout << h << "_";
+        //std::cout << h << " ";
         if(count_tmp != 0){tmp += "_";}
         tmp += std::to_string(h);
         count_tmp += 1;
       }
-      std::cout << "\n";
+      //std::cout << "\n";
       if(count != 0){haplotypes += ";";}
       haplotypes += tmp;
       count += 1;
