@@ -24,6 +24,7 @@ void print_allele_depths(std::vector<allele> ad){
       std::cout << "Qual: " << (uint16_t) it->mean_qual << std::endl;
       std::cout << "Beg: " << it->beg << std::endl;
       std::cout << "End: " << it->end << std::endl;
+      std::cout << "-----------------" << std::endl;
     }
   }
 }
@@ -50,77 +51,39 @@ int find_ref_in_allele(std::vector<allele> ad, char ref){
   return -1;
 }
 
-//overload function for checking if a position exists in the postion vector
-int check_pos_exists(uint32_t pos, std::vector<position> all_positions){
-  /*
-   * @param pos : the position relative to the reference
-   * @param all_positions : vector holding all positions
-   *
-   * Check if a positon exists in record. Return -1 if not found else return
-   * the index of the matching position.
-   */
-
-  int count = 0;
-  for(std::vector<position>::iterator it = all_positions.begin(); it != all_positions.end(); ++it) {
-    if(it->pos == pos){
-      return(count);
-    }
-    count += 1;
-  }
-  return(-1);
-}
-
 //overload function for storing alleles depths as reads are iterated
 void update_allele_depth(std::vector<position> &all_positions, std::vector<std::string> nucleotides, std::vector<uint32_t> positions){
   /*
    * @param ad : vector containing all previously recorded alleles
    * @param nucleotides : vector containing the SNP NT values
    * @param positions : vector containing the SNP positions
-   * @param qualities ; vector containing variant qualities **TODO**
+   * @param qualities : vector containing variant qualities **TODO**
    *
    * Function takes in the variants for a read and populates the allele data structure. All reads
    * get passed through this.
    */
 
+  //TODO sometimes len of pos and nt not same
+   uint32_t location = 0;
   //iterate over the variants
   for(uint32_t i = 0; i < nucleotides.size(); i++){
-    int location = check_pos_exists(positions[i], all_positions);
-     
+    //int location = check_pos_exists(positions[i], all_positions);
+    location = positions[i];
+    
     //this position already exists
-    if(location != -1){
-      all_positions[location].depth += 1;
-      int allele_location = check_allele_exists(nucleotides[i], all_positions[location].ad);
-      //allele doesn't exist
-      if(allele_location == -1){
-        allele new_allele;
-        new_allele.depth = 1;
-        new_allele.nuc = nucleotides[i];
-        all_positions[location].ad.push_back(new_allele);
-      }else{
-        all_positions[location].ad[allele_location].depth += 1;
-      }
-    }else{ //add the position to the vector
-      position new_position;
-      new_position.pos = positions[i];
-      new_position.depth = 1;      
+    all_positions[location].depth += 1;
+    int allele_location = check_allele_exists(nucleotides[i], all_positions[location].ad);
+    //allele doesn't exist
+    if(allele_location == -1){
       allele new_allele;
       new_allele.depth = 1;
       new_allele.nuc = nucleotides[i];
-      new_position.ad.push_back(new_allele);
-      all_positions.push_back(new_position); 
+      all_positions[location].ad.push_back(new_allele);
+    }else{
+      all_positions[location].ad[allele_location].depth += 1;
     }
   }
 
-  //test lines
-  /*for(uint32_t t = 0; t < all_positions.size(); t++){
-    position test = all_positions[t];
-    if(test.ad.size() > 0){
-      std::cout << "\n";
-      std::cout << "pos " << test.pos << " depth " << test.depth <<  std::endl; 
-      print_allele_depths(test.ad);
-    }
-  }*/
-    
 }
 
 //ad means the number of reads that support the reported alleles
