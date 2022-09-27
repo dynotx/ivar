@@ -16,6 +16,7 @@
 #include "primer_bed.h"
 #include "stdafx.h"
 #include "clustering.h"
+#include "kmeans.h"
 using namespace alglib;
 
 std::vector<std::vector<uint32_t>> transpose(const std::vector<std::vector<uint32_t>> data) {
@@ -432,7 +433,7 @@ void k_means(int n_clusters, alglib::real_2d_array xy, cluster &cluster_results)
   clusterizersetpoints(s, xy, num_points, 1, 2);
   clusterizersetkmeanslimits(s, 5, 0);
   //this is the cluster size!!!
-  clusterizerrunkmeans(s, n_clusters, rep);
+  custom_kmeans(s, n_clusters, rep);
   if (int(rep.terminationtype) != 1){
     std::cout << "Error in clustering haplotypes" << std::endl;
     exit(1);
@@ -718,20 +719,13 @@ std::vector<float> create_frequency_matrix(IntervalTree &amplicons, std::vector<
     std::vector<std::vector<int>> all_unique_haplotypes; //unique occurences of haplotypes on the amplicon
     std::vector<std::vector<int>> all_haplotypes; //extended version of each haplotype covering all positions
 
-    struct position allele_positions;    
+    struct position allele_positions;   
+
     //loop through all the haplotypes in the amplicon and find unqiue ones
     for(uint32_t i=0; i < positions.size(); i++){
       position = positions[i];
       haplotype = haplotypes[i];
       range = ranges[i];
-      if(node->data->low == 1285){
-        for(uint32_t x = 0; x < position.size(); x++){
-          if(haplotype[x] != -2){
-            std::cout << position[x] << " " << haplotype[x] << std::endl;
-          }
-        }
-      } 
-
 
       //initialize vector assuming positions are covered
       std::vector<int> expanded_haplotypes(flattened.size(), -1);
@@ -743,9 +737,9 @@ std::vector<float> create_frequency_matrix(IntervalTree &amplicons, std::vector<
         if(haplotype[i] >= 0){
           allele_positions = all_positions[position[i]];
           float freq = allele_positions.ad[haplotype[i]].depth / allele_positions.depth;
-          if(node->data->low == 1285){
-            std::cout << position[i] << " " << haplotype[i] << " " << allele_positions.ad[haplotype[i]].depth << " " << allele_positions.depth << std::endl;
-          }
+          //if(node->data->low == 2623){
+          //  std::cout << position[i] << " " << haplotype[i] << " " << allele_positions.ad[haplotype[i]].depth << " " << allele_positions.depth << std::endl;
+          //}
           if(freq <= 0.03 || allele_positions.ad[haplotype[i]].depth < 10){
             haplotype[i] = -1;
           }
@@ -876,7 +870,8 @@ int determine_threshold(std::string bam, std::string bed, std::string pair_info,
     std::cout << freq << std::endl;
   }*/
 
-  print_allele_depths(all_positions[1310].ad);
+  //test lines
+  //print_allele_depths(all_positions[2716].ad);
 
   //amplicons.print_amplicon_summary();  
   amplicons.dump_amplicon_summary(output_amplicon);
@@ -890,7 +885,7 @@ int determine_threshold(std::string bam, std::string bed, std::string pair_info,
    
   //call kmeans clustering
   cluster cluster_results;
-  for (int n =2; n <= 8; n++){
+  for (int n =2; n <= 6; n++){
     k_means(n, xy, cluster_results);
     std::cout << "n " << n << " sil " << cluster_results.sil_score << std::endl;
   }
