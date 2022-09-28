@@ -58,6 +58,7 @@ std::vector<double> remove_outlier_points(std::vector<double> points, double dis
    * Given a cluster, remove the point contributing the most to the variance in the direction
    * opposite the distance and return.
    */ 
+  //std::cout << "top of remove outlier, points size : " << points.size() << std::endl;
   std::vector<double> zscores;
   double mean = std::accumulate(points.begin(), points.end(), 0.0) / points.size();
   double stddev = sqrt(calculate_variance(points));
@@ -73,6 +74,7 @@ std::vector<double> remove_outlier_points(std::vector<double> points, double dis
     remove_index = std::max_element(zscores.begin(),zscores.end()) - zscores.begin(); 
   }
   points.erase(points.begin() + remove_index);
+  //std::cout << "bottom of remove outlier, points size : " << points.size() << std::endl;
   return(points);
 
 }
@@ -95,7 +97,7 @@ std::vector<double> flatten(std::vector<std::vector<double>> sorted_points){
   return(flat_points);
 }
 
-void compositional_constraint(alglib_impl::kmeansbuffers *buf, alglib_impl::ae_int_t k, alglib_impl::ae_matrix* xy, alglib_impl::ae_int_t npoints){
+std::vector<double> compositional_constraint(alglib_impl::kmeansbuffers *buf, alglib_impl::ae_int_t k, alglib_impl::ae_matrix* xy, alglib_impl::ae_int_t npoints){
   std::vector<double> centers;
   std::vector<double> variance;
   std::vector<double> flat_points;
@@ -111,20 +113,15 @@ void compositional_constraint(alglib_impl::kmeansbuffers *buf, alglib_impl::ae_i
   //std::cout << "\n";
   //distance from 1
   distance = distance_from_one(centers);
+  //initialize values
   for(int i=0; i<=npoints-1; i++){
     point = xy->ptr.pp_double[i][0];
     flat_points.push_back(point);
+    center_index = find_closest_center(centers, k, point);
+    sorted_points[center_index].push_back(point);
   }
 
-
   while(abs(distance) > 0.03){
-    //sort points to closest center
-    for(uint32_t i=0; i<=flat_points.size()-1; i++){
-      point = flat_points[i];
-      center_index = find_closest_center(centers, k, point);
-      sorted_points[center_index].push_back(point);
-    }
-
     //calculate the variance per cluster
     variance = calculate_variance(sorted_points);
     max_variance_index = std::max_element(variance.begin(),variance.end()) - variance.begin();
@@ -133,18 +130,24 @@ void compositional_constraint(alglib_impl::kmeansbuffers *buf, alglib_impl::ae_i
     sorted_points[max_variance_index] = remove_outlier_points(sorted_points[max_variance_index], distance);
     
     //recalculate centroid
+    centers.clear();
     centers = recalculate_centroids(sorted_points);
+
     //flatten points out again
+    flat_points.clear();
     flat_points = flatten(sorted_points);
 
     //recalculate distance
     distance = distance_from_one(centers); 
     
+    //test lines
+    /*std::cout << "size of flat points " << flat_points.size() << std::endl;    
     for(double c : centers){
       std::cout << c << " ";
     }
-    std::cout << "\n";
+    std::cout << "\n";*/
   }
+  return(centers);  
 }
 
 static ae_bool clustering_fixcenters(alglib_impl::ae_matrix* xy,
@@ -637,8 +640,6 @@ void kmeans_internal(alglib_impl::ae_matrix* xy, alglib_impl::ae_int_t npoints, 
         //boolean value, not sure what this means but this executes
         if( !kmeansdbgnoits )
         {
-            std::cout << "\ntop" << std::endl;
-
             /*
              * Perform iteration as usual, in normal mode
              */
@@ -653,7 +654,6 @@ void kmeans_internal(alglib_impl::ae_matrix* xy, alglib_impl::ae_int_t npoints, 
             //xyc is are the center values
             while(maxits==0||itcnt<maxits)
             {
-                std::cout << "iterate" << std::endl;
                 /*
                  * Update iteration counter
                  */
@@ -711,9 +711,13 @@ void kmeans_internal(alglib_impl::ae_matrix* xy, alglib_impl::ae_int_t npoints, 
                    }
                     zerosizeclusters = zerosizeclusters||buf->csizes.ptr.p_int[j]==0;
                 }
-                
-                compositional_constraint(buf, k, xy, npoints);
+                //enforce compositional constraint
+                std::vector<double> centers = compositional_constraint(buf, k, xy, npoints);
+                for(j=0; j<=k-1; j++){
+                  buf->ct.ptr.pp_double[j][0] = centers[j];
+                }
 
+              
                 if( zerosizeclusters )
                 {
 
