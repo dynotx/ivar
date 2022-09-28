@@ -2,11 +2,100 @@
 #include "ap.h"
 #include "stdafx.h"
 using namespace alglib;
+#include <numeric>
 /*
  * Written to extend alglib kmeans clustering, imposing 
  * and additional "compositional constraint" and fixing a noise
  * cluster at 0.03.
  */
+
+
+double find_closest_center(alglib_impl::kmeansbuffers *buf, alglib_impl::ae_int_t k, double point){
+  double tmp_distance = 1.0;
+  double center;
+  double center_index;
+
+  for(int j=0; j<=k-1; j++){
+    center = buf->ct.ptr.pp_double[j][0];
+    if(abs(center-point) < tmp_distance){
+      tmp_distance = abs(center-point);
+      center_index = j;
+    }
+  }  
+  return(center_index);
+}
+
+double distance_from_one(std::vector<double> centers){
+  double sum = 0;
+  double one = 1;
+  for(double c : centers){
+    sum += c;
+  }
+  return(abs(one-sum));
+}
+
+std::vector<double> calculate_variance(std::vector<std::vector<double>> sorted_points){
+  std::vector<double> variance;
+  double mean = 0.0;
+  double accumulator;
+
+  for(std::vector<double> points : sorted_points){
+    accumulator = 0;
+    mean = std::accumulate(points.begin(), points.end(), 0.0) / points.size();
+    //std::cout << "mean " << mean << std::endl;
+    for(double point : points){
+      accumulator += std::pow(point - mean, 2);
+    }
+    variance.push_back(accumulator/points.size());
+  }
+  return(variance);
+}
+
+std::vector<double> remove_outlier_points(std::vector<double> points, double distance){
+  /*
+   * Given a cluster, remove the point contributing the most to the variance in the direction
+   * opposite the distance and return.
+   */ 
+
+}
+
+void compositional_constraint(alglib_impl::kmeansbuffers *buf, alglib_impl::ae_int_t k, alglib_impl::ae_matrix* xy, alglib_impl::ae_int_t npoints){
+  std::vector<double> centers;
+  std::vector<double> variance;
+  std::vector<std::vector<double>> sorted_points(k);
+  double point;
+  double distance;
+  double center_index;
+  int max_variance_index;
+
+  for(int j=0; j<=k-1; j++){
+    centers.push_back(buf->ct.ptr.pp_double[j][0]);
+    std::cout << buf->ct.ptr.pp_double[j][0] << " ";
+  }
+  std::cout << "\n";
+  //distance from 1
+  distance = distance_from_one(centers);
+  std::cout << distance << std::endl;
+
+  while(distance > 0.03){
+    //sort points to closest center
+    for(int i=0; i<=npoints-1; i++){
+      point = xy->ptr.pp_double[i][0];
+      center_index = find_closest_center(buf, k, point);
+      sorted_points[center_index].push_back(point);
+    }
+
+    //calculate the variance per cluster
+    variance = calculate_variance(sorted_points);
+    for(double var : variance){
+      std::cout << "var " << var << std::endl;
+    }
+    max_variance_index = std::max_element(variance.begin(),variance.end()) - variance.begin();
+    remove_outlier_points(sorted_points[max_variance_index], distance);
+    distance = 0.01;
+  }
+}
+
 static ae_bool clustering_fixcenters(alglib_impl::ae_matrix* xy,
      alglib_impl::ae_int_t npoints,
      alglib_impl::ae_int_t nvars,
@@ -459,6 +548,7 @@ void kmeans_internal(alglib_impl::ae_matrix* xy, alglib_impl::ae_int_t npoints, 
     /*
      * Multiple passes of k-means++ algorithm
      */
+    //make sure the seed is set
     if( seed<=0 )
     {
       alglib_impl::hqrndrandomize(&rs, _state);
@@ -477,7 +567,6 @@ void kmeans_internal(alglib_impl::ae_matrix* xy, alglib_impl::ae_int_t npoints, 
     *energy = ae_maxrealnumber;
     for(pass=1; pass<=restarts; pass++)
     {
-
         /*
          * Select initial centers.
          *
@@ -488,12 +577,16 @@ void kmeans_internal(alglib_impl::ae_matrix* xy, alglib_impl::ae_int_t npoints, 
          * (some of them have no corresponding points in dataset, some are non-distinct).
          * Algorithm below is robust enough to deal with such set.
          */
+
+        //CHANGE: select the centers from the list of points, fix a cluster at 0.03
         clustering_selectinitialcenters(xy, npoints, nvars, initalgo, &rs, k, &buf->ct, &buf->initbuf, &buf->updatepool, _state);
         /*
          * Lloyd's iteration
          */
+        //boolean value, not sure what this means but this executes
         if( !kmeansdbgnoits )
         {
+            std::cout << "\ntop" << std::endl;
 
             /*
              * Perform iteration as usual, in normal mode
@@ -505,9 +598,11 @@ void kmeans_internal(alglib_impl::ae_matrix* xy, alglib_impl::ae_int_t npoints, 
             eprev = ae_maxrealnumber;
             e = ae_maxrealnumber;
             itcnt = 0;
+            //general notes
+            //xyc is are the center values
             while(maxits==0||itcnt<maxits)
             {
-
+                std::cout << "iterate" << std::endl;
                 /*
                  * Update iteration counter
                  */
@@ -532,7 +627,9 @@ void kmeans_internal(alglib_impl::ae_matrix* xy, alglib_impl::ae_int_t npoints, 
                 /*
                  * Update centers
                  */
-                                for(j=0; j<=k-1; j++)
+
+                //CHANGE: at this point we try and force the centers to equal 1
+                for(j=0; j<=k-1; j++)
                 {
                     buf->csizes.ptr.p_int[j] = 0;
                 }
@@ -546,18 +643,26 @@ void kmeans_internal(alglib_impl::ae_matrix* xy, alglib_impl::ae_int_t npoints, 
                 for(i=0; i<=npoints-1; i++)
                 {
                     buf->csizes.ptr.p_int[xyc->ptr.p_int[i]] = buf->csizes.ptr.p_int[xyc->ptr.p_int[i]]+1;
+                    //vdst, stride_dist, vscr, stride_src, n
                     alglib_impl::ae_v_add(&buf->ct.ptr.pp_double[xyc->ptr.p_int[i]][0], 1, &xy->ptr.pp_double[i][0], 1, alglib_impl::ae_v_len(0,nvars-1));
                 }
+                                
+                //check for orphan clusters
                 zerosizeclusters = ae_false;
                 for(j=0; j<=k-1; j++)
                 {
                     if( buf->csizes.ptr.p_int[j]!=0 )
                     {
                         v = (double)1/(double)buf->csizes.ptr.p_int[j];
+                        //this is the line that sets the new values
                         alglib_impl::ae_v_muld(&buf->ct.ptr.pp_double[j][0], 1, alglib_impl::ae_v_len(0,nvars-1), v);
-                    }
+                        //std::cout << "buf 2 " << buf->ct.ptr.pp_double[j][0] << std::endl;
+                   }
                     zerosizeclusters = zerosizeclusters||buf->csizes.ptr.p_int[j]==0;
                 }
+                
+                compositional_constraint(buf, k, xy, npoints);
+
                 if( zerosizeclusters )
                 {
 
@@ -720,6 +825,7 @@ void custom_kmeans_inner(alglib_impl::clusterizerstate* s, alglib_impl::ae_int_t
     rep->k = k;
     rep->npoints = s->npoints;
     rep->nfeatures = s->nfeatures;
+    //call to function that actually does the clustering 
     kmeans_internal(&s->xy, s->npoints, s->nfeatures, k, s->kmeansinitalgo, s->seed, s->kmeansmaxits, s->kmeansrestarts, s->kmeansdbgnoits, &rep->terminationtype, &rep->iterationscount, &dummy, ae_false, &rep->c, ae_true, &rep->cidx, &rep->energy, &s->kmeanstmp, _state);
     alglib_impl::ae_frame_leave(_state);
 }
