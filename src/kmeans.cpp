@@ -121,14 +121,18 @@ std::vector<double> compositional_constraint(alglib_impl::kmeansbuffers *buf, al
     sorted_points[center_index].push_back(point);
   }
 
-  while(abs(distance) > 0.03){
-    //calculate the variance per cluster
+  uint32_t minimum_flat_points = flat_points.size() * 0.25;
+  bool done = false;
+
+  while((abs(distance) > 0.03) && (!done) && (flat_points.size() > minimum_flat_points)){
+  //while(abs(distance) > 0.03){
+   //calculate the variance per cluster
     variance = calculate_variance(sorted_points);
     max_variance_index = std::max_element(variance.begin(),variance.end()) - variance.begin();
 
     //remove the point contributing most to variance in the wrong direction
     sorted_points[max_variance_index] = remove_outlier_points(sorted_points[max_variance_index], distance);
-    
+
     //recalculate centroid
     centers.clear();
     centers = recalculate_centroids(sorted_points);
@@ -140,6 +144,13 @@ std::vector<double> compositional_constraint(alglib_impl::kmeansbuffers *buf, al
     //recalculate distance
     distance = distance_from_one(centers); 
     
+    //try and determine if we have any clusters with few points or if we've lost too many points total
+    for(std::vector<double> cluster : sorted_points){
+      if(cluster.size() < 2){
+        done = true;
+      }
+    }
+
     //test lines
     /*std::cout << "size of flat points " << flat_points.size() << std::endl;    
     for(double c : centers){
@@ -707,17 +718,21 @@ void kmeans_internal(alglib_impl::ae_matrix* xy, alglib_impl::ae_int_t npoints, 
                         v = (double)1/(double)buf->csizes.ptr.p_int[j];
                         //this is the line that sets the new values
                         alglib_impl::ae_v_muld(&buf->ct.ptr.pp_double[j][0], 1, alglib_impl::ae_v_len(0,nvars-1), v);
-                        //std::cout << "buf 2 " << buf->ct.ptr.pp_double[j][0] << std::endl;
                    }
                     zerosizeclusters = zerosizeclusters||buf->csizes.ptr.p_int[j]==0;
                 }
                 //enforce compositional constraint
-                std::vector<double> centers = compositional_constraint(buf, k, xy, npoints);
-                for(j=0; j<=k-1; j++){
-                  buf->ct.ptr.pp_double[j][0] = centers[j];
-                }
+                std::vector<double> centers;
+                centers = compositional_constraint(buf, k, xy, npoints);
+                //fix noise cluster
+                int min_index  = std::min_element(centers.begin(), centers.end()) - centers.begin();
+                centers[min_index] = 0.03;
 
-              
+                for(j=0; j<=k-1; j++){
+                  //std::cout << "in " << centers[j] << std::endl;
+                  buf->ct.ptr.pp_double[j][0] = centers[j];
+                } 
+
                 if( zerosizeclusters )
                 {
 
