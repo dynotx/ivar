@@ -10,13 +10,13 @@ using namespace alglib;
  */
 
 
-double find_closest_center(alglib_impl::kmeansbuffers *buf, alglib_impl::ae_int_t k, double point){
+double find_closest_center(std::vector<double> centers, alglib_impl::ae_int_t k, double point){
   double tmp_distance = 1.0;
   double center;
   double center_index;
 
   for(int j=0; j<=k-1; j++){
-    center = buf->ct.ptr.pp_double[j][0];
+    center = centers[j];
     if(abs(center-point) < tmp_distance){
       tmp_distance = abs(center-point);
       center_index = j;
@@ -31,22 +31,24 @@ double distance_from_one(std::vector<double> centers){
   for(double c : centers){
     sum += c;
   }
-  return(abs(one-sum));
+  return(one-sum);
+}
+
+double calculate_variance(std::vector<double> points){
+  double mean = 0.0;
+  double accumulator = 0.0;
+
+  mean = std::accumulate(points.begin(), points.end(), 0.0) / points.size();
+  for(double point : points){
+    accumulator += std::pow(point - mean, 2);
+  }
+  return(accumulator/points.size());
 }
 
 std::vector<double> calculate_variance(std::vector<std::vector<double>> sorted_points){
   std::vector<double> variance;
-  double mean = 0.0;
-  double accumulator;
-
   for(std::vector<double> points : sorted_points){
-    accumulator = 0;
-    mean = std::accumulate(points.begin(), points.end(), 0.0) / points.size();
-    //std::cout << "mean " << mean << std::endl;
-    for(double point : points){
-      accumulator += std::pow(point - mean, 2);
-    }
-    variance.push_back(accumulator/points.size());
+    variance.push_back(calculate_variance(points));
   }
   return(variance);
 }
@@ -56,12 +58,47 @@ std::vector<double> remove_outlier_points(std::vector<double> points, double dis
    * Given a cluster, remove the point contributing the most to the variance in the direction
    * opposite the distance and return.
    */ 
+  std::vector<double> zscores;
+  double mean = std::accumulate(points.begin(), points.end(), 0.0) / points.size();
+  double stddev = sqrt(calculate_variance(points));
 
+  for(double p: points){
+    zscores.push_back((p - mean) / stddev);
+  }
+  double remove_index = 0;
+  if(distance > 0){
+    remove_index = std::min_element(zscores.begin(),zscores.end()) - zscores.begin();
+      
+  }else{
+    remove_index = std::max_element(zscores.begin(),zscores.end()) - zscores.begin(); 
+  }
+  points.erase(points.begin() + remove_index);
+  return(points);
+
+}
+
+std::vector<double> recalculate_centroids(std::vector<std::vector<double>> sorted_points){
+  std::vector<double> centers;
+  for(std::vector<double> cluster : sorted_points){
+    centers.push_back(std::accumulate(cluster.begin(), cluster.end(), 0.0) / cluster.size());
+  }
+  return(centers);
+}
+
+std::vector<double> flatten(std::vector<std::vector<double>> sorted_points){
+  std::vector<double> flat_points;
+  for(std::vector<double> cluster : sorted_points){
+    for(double point : cluster){
+      flat_points.push_back(point);
+    }
+  }
+  return(flat_points);
 }
 
 void compositional_constraint(alglib_impl::kmeansbuffers *buf, alglib_impl::ae_int_t k, alglib_impl::ae_matrix* xy, alglib_impl::ae_int_t npoints){
   std::vector<double> centers;
   std::vector<double> variance;
+  std::vector<double> flat_points;
   std::vector<std::vector<double>> sorted_points(k);
   double point;
   double distance;
@@ -70,29 +107,43 @@ void compositional_constraint(alglib_impl::kmeansbuffers *buf, alglib_impl::ae_i
 
   for(int j=0; j<=k-1; j++){
     centers.push_back(buf->ct.ptr.pp_double[j][0]);
-    std::cout << buf->ct.ptr.pp_double[j][0] << " ";
   }
-  std::cout << "\n";
+  //std::cout << "\n";
   //distance from 1
   distance = distance_from_one(centers);
-  std::cout << distance << std::endl;
+  for(int i=0; i<=npoints-1; i++){
+    point = xy->ptr.pp_double[i][0];
+    flat_points.push_back(point);
+  }
 
-  while(distance > 0.03){
+
+  while(abs(distance) > 0.03){
     //sort points to closest center
-    for(int i=0; i<=npoints-1; i++){
-      point = xy->ptr.pp_double[i][0];
-      center_index = find_closest_center(buf, k, point);
+    for(uint32_t i=0; i<=flat_points.size()-1; i++){
+      point = flat_points[i];
+      center_index = find_closest_center(centers, k, point);
       sorted_points[center_index].push_back(point);
     }
 
     //calculate the variance per cluster
     variance = calculate_variance(sorted_points);
-    for(double var : variance){
-      std::cout << "var " << var << std::endl;
-    }
     max_variance_index = std::max_element(variance.begin(),variance.end()) - variance.begin();
-    remove_outlier_points(sorted_points[max_variance_index], distance);
-    distance = 0.01;
+
+    //remove the point contributing most to variance in the wrong direction
+    sorted_points[max_variance_index] = remove_outlier_points(sorted_points[max_variance_index], distance);
+    
+    //recalculate centroid
+    centers = recalculate_centroids(sorted_points);
+    //flatten points out again
+    flat_points = flatten(sorted_points);
+
+    //recalculate distance
+    distance = distance_from_one(centers); 
+    
+    for(double c : centers){
+      std::cout << c << " ";
+    }
+    std::cout << "\n";
   }
 }
 
