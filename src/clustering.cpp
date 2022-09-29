@@ -269,6 +269,12 @@ void parse_md_tag(uint8_t *aux, std::vector<int> &haplotypes, std::vector<uint32
     i++;
   } while(aux[i] != '\0');
 
+  /*for(uint32_t x : positions){
+    if(x == 23063){
+      std::cout << aux << std::endl;
+    }
+  }*/
+
   //fill out the reference matching position too
   for(uint32_t z = length; z < abs_end_pos; z++){
     //std::cout << "z " << z << " length " << length << " cf " << correction_factor << std::endl;
@@ -438,7 +444,6 @@ void k_means(int n_clusters, alglib::real_2d_array xy, cluster &cluster_results)
     std::cout << "Error in clustering haplotypes" << std::endl;
     exit(1);
   }
-
   
   int i = 0;
   while(i < n_clusters){
@@ -541,7 +546,7 @@ void iterate_reads(bam1_t *r, IntervalTree &amplicons, std::vector<position> &al
                    
     i++;
   }
-  
+   
   parse_md_tag(aux, haplotypes, positions, abs_start_pos, all_positions, seq, abs_start_pos, correction_factor, abs_end_pos, ignore_positions, reverse);
   if(positions.size() > 0){
    //reoder the positions to be consistent
@@ -552,7 +557,7 @@ void iterate_reads(bam1_t *r, IntervalTree &amplicons, std::vector<position> &al
   }
 }
 
-void count_haplotype_occurences(std::vector<std::vector<int>> all_haplotypes, std::vector<std::vector<int>> &save_haplotypes, std::vector<float> &save_read_counts){
+void count_haplotype_occurences(std::vector<std::vector<int>> all_haplotypes, std::vector<std::vector<int>> &save_haplotypes, std::vector<float> &save_read_counts, float &adjusted_read_count){
   /*
    *
    */
@@ -563,9 +568,12 @@ void count_haplotype_occurences(std::vector<std::vector<int>> all_haplotypes, st
   std::vector<uint32_t> flat_pairs;
 
   for(std::vector<int> exp_haplo : all_haplotypes){
-
     std::vector<std::vector<int>>::iterator it = std::find(unique_haplotypes.begin(), unique_haplotypes.end(), exp_haplo);
     bool zeros = std::all_of(exp_haplo.begin(), exp_haplo.end(), [](int i) { return i< 0; });
+    if (std::count(exp_haplo.begin(), exp_haplo.end(), -1)){
+      continue;
+    } 
+    adjusted_read_count += 1;
     if(zeros){
       continue;
     }
@@ -578,16 +586,19 @@ void count_haplotype_occurences(std::vector<std::vector<int>> all_haplotypes, st
       count_haplotypes.push_back(1);
     }
   }
-
+  
   /*std::cout << "haplotypes\n";
+  uint32_t x = 0;
   for(std::vector<int> vect : unique_haplotypes){
+    std::cout << count_haplotypes[x] << std::endl;
     for(int y : vect){
       std::cout << y << " ";
     }
+    x += 1;
     std::cout << "\n";
   }
   std::cout << "\n";*/
-
+  
   bool match = true;
   uint32_t match_loc = 0;
   int position_1;
@@ -656,7 +667,7 @@ void count_haplotype_occurences(std::vector<std::vector<int>> all_haplotypes, st
   }
   
   //test lines
-  /*for(std::vector<int> haplo : save_haplotypes){
+  for(std::vector<int> haplo : save_haplotypes){
     for(int h:haplo){
       std::cout << h << " ";
     }
@@ -664,7 +675,7 @@ void count_haplotype_occurences(std::vector<std::vector<int>> all_haplotypes, st
   }
   for(float f : save_read_counts){
     std::cout << f << "\n";
-  }*/
+  }
 
 }
 
@@ -737,8 +748,9 @@ std::vector<float> create_frequency_matrix(IntervalTree &amplicons, std::vector<
         if(haplotype[i] >= 0){
           allele_positions = all_positions[position[i]];
           float freq = allele_positions.ad[haplotype[i]].depth / allele_positions.depth;
-          //if(node->data->low == 2623){
-          //  std::cout << position[i] << " " << haplotype[i] << " " << allele_positions.ad[haplotype[i]].depth << " " << allele_positions.depth << std::endl;
+          //if(node->data->low == 23047){
+            //std::cout << position[i] << " " << haplotype[i] << " " << allele_positions.ad[haplotype[i]].depth << " " << allele_positions.depth << std::endl;
+            //std::cout << "freq " << freq << std::endl;
           //}
           if(freq <= 0.03 || allele_positions.ad[haplotype[i]].depth < 10){
             haplotype[i] = -1;
@@ -782,16 +794,16 @@ std::vector<float> create_frequency_matrix(IntervalTree &amplicons, std::vector<
     std::vector<std::vector<int>> transposed_haplotypes = transpose(final_haplotypes); 
     std::vector<std::vector<int>> save_haplotypes; //this is where we have our final things
     std::vector<float> save_read_counts;
-
+    float adjusted_read_count = 0;
     //the haplotypes by index to be condensed, first one is SC second is matched
-    count_haplotype_occurences(transposed_haplotypes, save_haplotypes, save_read_counts);
+    count_haplotype_occurences(transposed_haplotypes, save_haplotypes, save_read_counts, adjusted_read_count);
     //save this info to the amplicon
     node->final_haplotypes = save_haplotypes;
     node->final_positions = final_positions;
-    
     for(float d: save_read_counts){
-      node->frequency.push_back(d / read_count);
-      frequencies.push_back(d / read_count);
+      std::cout << node->data->low << " " << d << " " << adjusted_read_count << " " << read_count <<  " " << d / adjusted_read_count << std::endl;
+      node->frequency.push_back(d / adjusted_read_count);
+      frequencies.push_back(d / adjusted_read_count);
     }
   }
   return(frequencies);
@@ -860,16 +872,12 @@ int determine_threshold(std::string bam, std::string bed, std::string pair_info,
     //std::cout << read_counter << " " << bam_get_qname(aln) << std::endl;
     //pull out the relevant diff from reference
     iterate_reads(aln, amplicons, all_positions);
-
     read_counter += 1;
   }
 
   //extract those reads into a format useable in the clustering
   std::vector<float> all_frequencies = create_frequency_matrix(amplicons, all_positions);
-  /*for(float freq:all_frequencies){
-    std::cout << freq << std::endl;
-  }*/
-
+  //remove perfect 1 haplotypes
   //test lines
   //print_allele_depths(all_positions[2716].ad);
 
@@ -882,7 +890,7 @@ int determine_threshold(std::string bam, std::string bed, std::string pair_info,
   for(uint32_t i=0; i < all_frequencies.size(); i++){
     xy(i,0) = all_frequencies[i];
   }
-   
+     
   //call kmeans clustering
   cluster cluster_results;
   for (int n =2; n <= 6; n++){
