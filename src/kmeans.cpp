@@ -28,14 +28,14 @@ float calculate_sil_single_point(std::vector<std::vector<double>> sorted_points,
   double b=1; //sil score b term
   double tmp=0;
 
-  std::cout << "center " << center <<  " point " << point << std::endl;
   //iterates through every point
   for (uint32_t i = 0; i < sorted_points.size(); i++) {
     for(uint32_t x = 0; x < sorted_points[i].size(); x++){
       compare_point = sorted_points[i][x];
-      std::cout << "i " << i << std::endl; 
+      double cur_center = i;
+      //std::cout << "i " << i << std::endl; 
       //belongs to the same cluster
-      if(i == center){
+      if(cur_center == center){
         internal_dist.push_back(abs(point-compare_point));
       }else{ //doesn't belong to the same cluster
         external_dist[i][0] += abs(point-compare_point); //sum distance between poi and cluster points
@@ -46,14 +46,16 @@ float calculate_sil_single_point(std::vector<std::vector<double>> sorted_points,
   a = average(internal_dist);
   //find the average distance from each external cluster
   for(uint32_t z=0; z < n_clusters; z++){
+    //our target cluster isn't external
+    if(z == center){
+      continue;
+    }
     tmp = external_dist[z][0] / external_dist[z][1];
     //find the minimum of the external cluster dists
     if(tmp < b){
       b = tmp;
     }
   }
-  //std::cout << "point " << point << " a " << a << " b " << b << std::endl;
-  //std::cout << ((b-a)/std::max(a,b)) << std:: endl;
   return((b - a) / std::max(a,b));
 }
 void sil_score(std::vector<std::vector<double>> sorted_points, std::vector<double> centers){
@@ -168,7 +170,6 @@ std::vector<double> compositional_constraint(alglib_impl::kmeansbuffers *buf, al
   for(int j=0; j<=k-1; j++){
     centers.push_back(buf->ct.ptr.pp_double[j][0]);
   }
-  //std::cout << "\n";
   //distance from 1
   distance = distance_from_one(centers);
   //initialize values
@@ -209,12 +210,6 @@ std::vector<double> compositional_constraint(alglib_impl::kmeansbuffers *buf, al
       }
     }
 
-    //test lines
-    /*std::cout << "size of flat points " << flat_points.size() << std::endl;    
-    for(double c : centers){
-      std::cout << c << " ";
-    }
-    std::cout << "\n";*/
   }
   return(centers);  
 }
@@ -649,8 +644,6 @@ void kmeans_internal(alglib_impl::ae_matrix* xy, alglib_impl::ae_int_t npoints, 
     alglib_impl::ae_vector_clear(xyc);
     *energy = 0;
     alglib_impl::_hqrndstate_init(&rs, _state, ae_true);
-
-
     /*
      * Test parameters
      */
@@ -787,25 +780,14 @@ void kmeans_internal(alglib_impl::ae_matrix* xy, alglib_impl::ae_int_t npoints, 
                   float c = find_closest_center(centers, k, xy->ptr.pp_double[j][0]);
                   sorted_points[c].push_back(xy->ptr.pp_double[j][0]);
                 }
-                for(std::vector<double> cluster : sorted_points){
-                  for(double p : cluster){
-                    std::cout << "p " << p << " ";
-                  }
-                  std::cout << "\n";
-                }
-
                 sil_score(sorted_points, centers);
-                //for(double x: centers){ std::cout << x << " ";}
-                //std::cout << "\n";
-
                 //fix noise cluster
                 int min_index  = std::min_element(centers.begin(), centers.end()) - centers.begin();
                 centers[min_index] = 0.03;
 
                 for(j=0; j<=k-1; j++){
-                  //std::cout << "in " << centers[j] << std::endl;
                   buf->ct.ptr.pp_double[j][0] = centers[j];
-                } 
+                }
 
                 if( zerosizeclusters )
                 {

@@ -382,6 +382,7 @@ float cluster_point_distances(alglib::real_2d_array X, alglib::kmeansreport rep,
       b = tmp;
     }
   }
+  //std::cout << "a " << a << " b " << b << std::endl;
   return((b - a) / std::max(a,b));
 }
 
@@ -851,7 +852,7 @@ int determine_threshold(std::string bam, std::string bed, std::string pair_info,
   hts_idx_t *idx = sam_index_load(in, bam.c_str());
   bam_hdr_t *header = sam_hdr_read(in);
 
-  //bam1_t *aln = bam_init1();
+  bam1_t *aln = bam_init1();
   hts_itr_t *iter = NULL;
   std::string region_;
   //region refers to reference
@@ -862,7 +863,7 @@ int determine_threshold(std::string bam, std::string bed, std::string pair_info,
   //fill md tag
   //bam_fillmd1_core(const char *ref_name, aln, char *ref, int flag, int max_nm)
 
-  /*int read_counter = 0;
+  int read_counter = 0;
   //this iterates over the reads and assigns them to an amplicon
   while(sam_itr_next(in, iter, aln) >= 0) {
     if(read_counter % 10000 == 0){
@@ -873,7 +874,7 @@ int determine_threshold(std::string bam, std::string bed, std::string pair_info,
     //pull out the relevant diff from reference
     iterate_reads(aln, amplicons, all_positions);
     read_counter += 1;
-  }*/
+  }
 
   //extract those reads into a format useable in the clustering
   std::vector<float> all_frequencies = create_frequency_matrix(amplicons, all_positions);
@@ -883,9 +884,6 @@ int determine_threshold(std::string bam, std::string bed, std::string pair_info,
 
   //amplicons.print_amplicon_summary();  
   amplicons.dump_amplicon_summary(output_amplicon);
-
-  //test lines for controlling sil scor /clustering
-  all_frequencies = {1, 1, 1, 0.90, 0.90, 0.10, 0.15};
 
   //reshape it into a real 2d array for alglib
   alglib::real_2d_array xy;
