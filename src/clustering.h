@@ -20,11 +20,10 @@
 class cluster {
   public:
     int n_clusters;
-    float sil_score;
+    float sil_score; //average of per sample sil score
     std::vector<float> sil_scores; //per sample                                       
     std::vector<float> centers;
 };
-
 
 //zipping and unzipping functions for haplotypes && position
 void zip(const std::vector<int> &haplotypes, const std::vector<uint32_t> &positions,std::vector<std::pair<uint32_t,int>> &zipped);
