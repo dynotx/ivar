@@ -23,6 +23,8 @@ class cluster {
     float sil_score; //average of per sample sil score
     std::vector<float> sil_scores; //per sample                                       
     std::vector<float> centers;
+    std::vector<std::vector<float>> sorted_points; //all points sorted by center they belong to
+    std::vector<std::vector<float>> cluster_bounds; //the upper and lower bounds of each cluster
 };
 
 //zipping and unzipping functions for haplotypes && position
