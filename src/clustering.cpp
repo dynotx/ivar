@@ -804,6 +804,11 @@ int determine_threshold(std::string bam, std::string bed, std::string pair_info,
    * @param primer_offset : 
    */
 
+  //TODO pass this (prefix) as param
+  std::string prefix = "amplicon";
+  std::string output_filename = prefix + ".fa";
+  std::cout << output_filename << std::endl;
+
   //preset the alleles to save time later
   std::vector<std::string> basic_nts = {"A", "C", "G", "T"};
   std::vector<allele> basic_alleles;
@@ -824,7 +829,7 @@ int determine_threshold(std::string bam, std::string bed, std::string pair_info,
     new_position.ad = basic_alleles;
     all_positions.push_back(new_position);
   }
-  std::string output_amplicon = "amplicon.txt";
+  std::string output_amplicon = prefix + ".txt";
   //initialize haplotype data structure
   std::vector<primer> primers;
   IntervalTree amplicons;
@@ -878,14 +883,26 @@ int determine_threshold(std::string bam, std::string bed, std::string pair_info,
     xy(i,0) = all_frequencies[i];
   }
 
+  //keep track of best sil score index
+  int best_cluster_index = 0;
+  float best_sil_score = 0;
+
+  std::vector<cluster> all_cluster_results;
+
   //call kmeans clustering
   cluster cluster_results;
-  for (int n =2; n <= 6; n++){
+  for (int n =2, i = 0; n <= 6; n++, i++){
     k_means(n, xy, cluster_results);
+    all_cluster_results.push_back(cluster_results);
+    if(cluster_results.sil_score > best_sil_score){
+      best_sil_score = cluster_results.sil_score;
+      best_cluster_index = i;
+    }
     //test lines
     //std::cout << "n " << n << " sil " << cluster_results.sil_score << std::endl;
   }
-  
+  std::cout << "Best sil score: " << best_sil_score << " at index " << best_cluster_index << std::endl;
+
   return 0;
 }
 
