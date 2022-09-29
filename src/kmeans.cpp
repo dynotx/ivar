@@ -6,9 +6,67 @@ using namespace alglib;
 /*
  * Written to extend alglib kmeans clustering, imposing 
  * and additional "compositional constraint" and fixing a noise
- * cluster at 0.03.
+ * cluster at 0.03. Additionall changes the scoring metric from 
+ * entropy to sil score.
  */
+double average(std::vector<double> x){
+  double sumTotal = 0;
+  for(double k=0; k < x.size(); ++k){
+      sumTotal += x[k];
+  }
+  return(sumTotal / x.size());
+}
 
+float calculate_sil_single_point(std::vector<std::vector<double>> sorted_points, std::vector<double> centers, double point, double center){
+  /*
+  */
+  uint32_t n_clusters = centers.size();
+  std::vector<double> internal_dist; //keep track of distance between point of interest and all points in cluster
+  double external_dist [n_clusters][2]; //dim 1 cluster value, dim 2 distance sum points and point count
+  double compare_point=0;
+  double a=0; //sil score a term
+  double b=1; //sil score b term
+  double tmp=0;
+
+  std::cout << "center " << center <<  " point " << point << std::endl;
+  //iterates through every point
+  for (uint32_t i = 0; i < sorted_points.size(); i++) {
+    for(uint32_t x = 0; x < sorted_points[i].size(); x++){
+      compare_point = sorted_points[i][x];
+      std::cout << "i " << i << std::endl; 
+      //belongs to the same cluster
+      if(i == center){
+        internal_dist.push_back(abs(point-compare_point));
+      }else{ //doesn't belong to the same cluster
+        external_dist[i][0] += abs(point-compare_point); //sum distance between poi and cluster points
+        external_dist[i][1] += 1; //count number points in cluster
+      }
+    }
+  }
+  a = average(internal_dist);
+  //find the average distance from each external cluster
+  for(uint32_t z=0; z < n_clusters; z++){
+    tmp = external_dist[z][0] / external_dist[z][1];
+    //find the minimum of the external cluster dists
+    if(tmp < b){
+      b = tmp;
+    }
+  }
+  //std::cout << "point " << point << " a " << a << " b " << b << std::endl;
+  //std::cout << ((b-a)/std::max(a,b)) << std:: endl;
+  return((b - a) / std::max(a,b));
+}
+void sil_score(std::vector<std::vector<double>> sorted_points, std::vector<double> centers){
+  double index= 0;
+  std::vector<double> sil_scores;
+  for(std::vector<double> cluster : sorted_points){
+    for(double point : cluster){
+      sil_scores.push_back(calculate_sil_single_point(sorted_points, centers, point, index));
+    }
+    index += 1;
+  }
+  std::cout << "sil " << average(sil_scores) << std::endl;
+}
 
 double find_closest_center(std::vector<double> centers, alglib_impl::ae_int_t k, double point){
   double tmp_distance = 1.0;
@@ -723,7 +781,23 @@ void kmeans_internal(alglib_impl::ae_matrix* xy, alglib_impl::ae_int_t npoints, 
                 }
                 //enforce compositional constraint
                 std::vector<double> centers;
+                std::vector<std::vector<double>> sorted_points(k);
                 centers = compositional_constraint(buf, k, xy, npoints);
+                for(j=0; j<=npoints-1;j++){
+                  float c = find_closest_center(centers, k, xy->ptr.pp_double[j][0]);
+                  sorted_points[c].push_back(xy->ptr.pp_double[j][0]);
+                }
+                for(std::vector<double> cluster : sorted_points){
+                  for(double p : cluster){
+                    std::cout << "p " << p << " ";
+                  }
+                  std::cout << "\n";
+                }
+
+                sil_score(sorted_points, centers);
+                //for(double x: centers){ std::cout << x << " ";}
+                //std::cout << "\n";
+
                 //fix noise cluster
                 int min_index  = std::min_element(centers.begin(), centers.end()) - centers.begin();
                 centers[min_index] = 0.03;
@@ -752,13 +826,14 @@ void kmeans_internal(alglib_impl::ae_matrix* xy, alglib_impl::ae_int_t npoints, 
                     itcnt = itcnt-1;
                     continue;
                 }
-
                 /*
                  * Stop if one of two conditions is met:
                  * 1. nothing has changed during iteration
-                 * 2. energy function increased after recalculation on new centers
-                 */
-                                e = (double)(0);
+                * 2. energy function increased after recalculation on new centers
+                */
+                e = (double)(0);
+                 
+                //here we replace energy with sil score
                 for(i=0; i<=npoints-1; i++)
                 {
                     v = 0.0;
