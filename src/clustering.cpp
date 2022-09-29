@@ -100,18 +100,9 @@ void print_cluster_info(cluster cluster_results){
    */
   std::cout << "N Clusters: " << cluster_results.n_clusters << std::endl;
   std::cout << "Sil Score: " << cluster_results.sil_score << std::endl;
-  for(float x: cluster_results.centers){
+  for(double x: cluster_results.centers){
     std::cout << "center @: " << x << std::endl;
   }
-}
-
-//get the average of a vector
-float average(std::vector<float> x){
-  float sumTotal = 0;
-  for(float k=0; k < x.size(); ++k){
-      sumTotal += x[k];            
-  }
-  return(sumTotal / x.size());
 }
 
 std::string decoded_nucs(int tmp){
@@ -320,9 +311,9 @@ void calculate_cluster_centers(alglib::real_2d_array X, alglib::kmeansreport rep
    * @params rep : kmeans reporter object  
    * @returns centers : vector containing all center values 
    */
-  std::vector<float> centers;
-  float summation [n_clusters][2]; //track all points per cluster
-  float point=0;
+  std::vector<double> centers;
+  double summation [n_clusters][2]; //track all points per cluster
+  double point=0;
   int label=0;
 
   for (int i = 0; i < X.rows(); i++) {
@@ -341,7 +332,7 @@ void calculate_cluster_centers(alglib::real_2d_array X, alglib::kmeansreport rep
 }
 
 //support function for sil score
-float cluster_point_distances(alglib::real_2d_array X, alglib::kmeansreport rep, float point, float center, int n_clusters){
+double cluster_point_distances(alglib::real_2d_array X, alglib::kmeansreport rep, double point, double center, int n_clusters){
   /*
   * @params X : array containing all data points
   * @params rep : kemans reporter object
@@ -349,13 +340,13 @@ float cluster_point_distances(alglib::real_2d_array X, alglib::kmeansreport rep,
   * @params center : the center of the data point of interests cluster
   * @returns ab : tuple with points a and b representing 
   */
-  std::vector<float> internal_dist; //keep track of distance between point of interest and all points in cluster
-  float external_dist [n_clusters][2]; //dim 1 cluster value, dim 2 distance sum points and point count
-  float compare_point=0;
+  std::vector<double> internal_dist; //keep track of distance between point of interest and all points in cluster
+  double external_dist [n_clusters][2]; //dim 1 cluster value, dim 2 distance sum points and point count
+  double compare_point=0;
   int compare_label=0;
-  float a=0; //sil score a term
-  float b=1; //sil score b term
-  float tmp=0;
+  double a=0; //sil score a term
+  double b=1; //sil score b term
+  double tmp=0;
   //iterate through and mind distances between points in cluster and out of clusters
   for (int i = 0; i < X.rows(); i++) {
     compare_point = X[i][0];
@@ -397,14 +388,16 @@ void calculate_sil_score(alglib::real_2d_array X, alglib::kmeansreport rep,
   */
   //std::cout << "Calculating silohuette score." << std::endl;
   int rows = X.rows();
-  float point = 0;
-  float center = 0;
-  std::vector<float> sil_scores;
-  float tmp = 0;
+  double point = 0;
+  double center = 0;
+  std::vector<double> sil_scores;
+  std::vector<std::vector<double>> sorted_points(n_clusters);
+  double tmp = 0;
 
   for (int i = 0; i < rows; i++) {
     point = X[i][0];
     center = rep.cidx[i];
+    sorted_points[center].push_back(point);
     tmp = cluster_point_distances(X, rep, point, center, n_clusters);
     sil_scores.push_back(tmp);
   }
@@ -412,7 +405,29 @@ void calculate_sil_score(alglib::real_2d_array X, alglib::kmeansreport rep,
   //store the cumulative results
   cluster_results.sil_score = average(sil_scores);
   cluster_results.sil_scores = sil_scores;
+  cluster_results.sorted_points = sorted_points;
 }
+//assigns per cluster an upper and lower bound
+void find_cluster_bounds(cluster &cluster_results){
+  /*
+   * Function takes each cluster and records the upper and lower bounds. Only needed for upper 
+   * cluster technically but recording it for every cluster, for future use.
+   */
+  std::vector<double> bounds; //temp holding for cluster bounds
+  double min;
+  double max;
+  std::vector<double> tmp;
+  for(uint32_t i = 0; i < cluster_results.sorted_points.size(); i++){
+    tmp = cluster_results.sorted_points[i];
+    //technicallt these find the min/max index within the vector
+    min = std::min_element(tmp.begin(), tmp.end()) - tmp.begin();
+    max = std::max_element(tmp.begin(), tmp.end()) - tmp.begin();
+    bounds = {tmp[min], tmp[max]};
+    cluster_results.cluster_bounds.push_back(bounds);
+    bounds.clear();
+  }
+}
+
 //does the actual k means ++ clustering in a loop
 void k_means(int n_clusters, alglib::real_2d_array xy, cluster &cluster_results){
   /*
@@ -450,6 +465,7 @@ void k_means(int n_clusters, alglib::real_2d_array xy, cluster &cluster_results)
  
   calculate_sil_score(xy, rep, n_clusters, cluster_results);
   calculate_cluster_centers(xy, rep, n_clusters, cluster_results);
+  find_cluster_bounds(cluster_results);
 }
 
 void iterate_reads(bam1_t *r, IntervalTree &amplicons, std::vector<position> &all_positions){
@@ -554,14 +570,14 @@ void iterate_reads(bam1_t *r, IntervalTree &amplicons, std::vector<position> &al
   }
 }
 
-void count_haplotype_occurences(std::vector<std::vector<int>> all_haplotypes, std::vector<std::vector<int>> &save_haplotypes, std::vector<float> &save_read_counts, float &adjusted_read_count){
+void count_haplotype_occurences(std::vector<std::vector<int>> all_haplotypes, std::vector<std::vector<int>> &save_haplotypes, std::vector<double> &save_read_counts, double &adjusted_read_count){
   /*
    *
    */
 
   //find the unique haplotypes in the transposed set
   std::vector<std::vector<int>> unique_haplotypes;
-  std::vector<float> count_haplotypes;
+  std::vector<double> count_haplotypes;
   std::vector<uint32_t> flat_pairs;
 
   for(std::vector<int> exp_haplo : all_haplotypes){
@@ -665,7 +681,7 @@ void count_haplotype_occurences(std::vector<std::vector<int>> all_haplotypes, st
   
 }
 
-std::vector<float> create_frequency_matrix(IntervalTree &amplicons, std::vector<position> all_positions){
+std::vector<double> create_frequency_matrix(IntervalTree &amplicons, std::vector<position> all_positions){
   /*
    * @param amplicons : data strucuture containing read count, haplotype nt, and positions
    * @return frequencies : a flat vector containing all haplotype frequencies
@@ -678,7 +694,7 @@ std::vector<float> create_frequency_matrix(IntervalTree &amplicons, std::vector<
    * -1 : soft clip or not covered
    */ 
 
-  std::vector<float> frequencies;
+  std::vector<double> frequencies;
   ITNode *node = amplicons.iterate_nodes();
   int read_count=0; //total reads in amplicon
 
@@ -733,7 +749,7 @@ std::vector<float> create_frequency_matrix(IntervalTree &amplicons, std::vector<
         //calculate allele frequency
         if(haplotype[i] >= 0){
           allele_positions = all_positions[position[i]];
-          float freq = allele_positions.ad[haplotype[i]].depth / allele_positions.depth;
+          double freq = allele_positions.ad[haplotype[i]].depth / allele_positions.depth;
           //if(node->data->low == 23047){
             //std::cout << position[i] << " " << haplotype[i] << " " << allele_positions.ad[haplotype[i]].depth << " " << allele_positions.depth << std::endl;
             //std::cout << "freq " << freq << std::endl;
@@ -779,14 +795,14 @@ std::vector<float> create_frequency_matrix(IntervalTree &amplicons, std::vector<
 
     std::vector<std::vector<int>> transposed_haplotypes = transpose(final_haplotypes); 
     std::vector<std::vector<int>> save_haplotypes; //this is where we have our final things
-    std::vector<float> save_read_counts;
-    float adjusted_read_count = 0;
+    std::vector<double> save_read_counts;
+    double adjusted_read_count = 0;
     //the haplotypes by index to be condensed, first one is SC second is matched
     count_haplotype_occurences(transposed_haplotypes, save_haplotypes, save_read_counts, adjusted_read_count);
     //save this info to the amplicon
     node->final_haplotypes = save_haplotypes;
     node->final_positions = final_positions;
-    for(float d: save_read_counts){
+    for(double d: save_read_counts){
       //std::cout << node->data->low << " " << d << " " << adjusted_read_count << " " << read_count <<  " " << d / adjusted_read_count << std::endl;
       node->frequency.push_back(d / adjusted_read_count);
       frequencies.push_back(d / adjusted_read_count);
@@ -867,7 +883,7 @@ int determine_threshold(std::string bam, std::string bed, std::string pair_info,
   }
 
   //extract those reads into a format useable in the clustering
-  std::vector<float> all_frequencies = create_frequency_matrix(amplicons, all_positions);
+  std::vector<double> all_frequencies = create_frequency_matrix(amplicons, all_positions);
   //remove perfect 1 haplotypes
   //test lines
   //print_allele_depths(all_positions[2716].ad);
@@ -885,23 +901,47 @@ int determine_threshold(std::string bam, std::string bed, std::string pair_info,
 
   //keep track of best sil score index
   int best_cluster_index = 0;
-  float best_sil_score = 0;
+  double best_sil_score = 0;
+  double threshold = 0;
 
   std::vector<cluster> all_cluster_results;
 
   //call kmeans clustering
-  cluster cluster_results;
   for (int n =2, i = 0; n <= 6; n++, i++){
-    k_means(n, xy, cluster_results);
+   //call kmeans clustering
+   cluster cluster_results; //reset the results
+   k_means(n, xy, cluster_results);
     all_cluster_results.push_back(cluster_results);
     if(cluster_results.sil_score > best_sil_score){
       best_sil_score = cluster_results.sil_score;
       best_cluster_index = i;
     }
     //test lines
-    //std::cout << "n " << n << " sil " << cluster_results.sil_score << std::endl;
+    std::cout << "n " << n << " sil " << cluster_results.sil_score << std::endl;
   }
   std::cout << "Best sil score: " << best_sil_score << " at index " << best_cluster_index << std::endl;
+
+  cluster choice_cluster = all_cluster_results[best_cluster_index];
+  //find the largest cluster center
+  int largest_cluster_index = std::max_element(choice_cluster.centers.begin(), choice_cluster.centers.end()) - choice_cluster.centers.begin();
+  //this marks the lower bound of the largest cluster
+  threshold = choice_cluster.cluster_bounds[largest_cluster_index][0];
+  std::cout << "Threshold: " << threshold << std::endl;
+
+  std::vector<allele> ad;
+  //TODO generalize these being passed as variables
+  //double min_insert_threshold = 0.08;
+  //uint8_t min_qual = 20;
+  //char gap = 'N';
+  //ret_t t;
+  //call consensus
+  //iterate over all positions
+  for(uint32_t i = 0; i < all_positions.size(); i++){
+    //get allele vector for position
+    ad = all_positions[i].ad;
+    //t = get_consensus_allele(ad, min_qual, threshold, gap, min_insert_threshold);
+  }
+
 
   return 0;
 }
