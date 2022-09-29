@@ -449,6 +449,7 @@ int main(int argc, char* argv[]){
   else if (cmd.compare("autoconsensus") == 0){
     opt = getopt( argc, argv, autoconsensus_opt_str);
     g_args.seq_id = "/Users/caceves/Desktop/ivar/data/contamination_tests/simulated_alpha_beta_90_10.bam";
+    //g_args.seq_id = "/Users/caceves/Desktop/ivar/data/contamination_tests/test.calmd.bam";
     g_args.min_threshold = 0;
     g_args.min_depth = 10;
     g_args.gap = 'N';
@@ -456,7 +457,7 @@ int main(int argc, char* argv[]){
     g_args.keep_min_coverage = true;
     g_args.min_insert_threshold = 0.8;
     g_args.primer_pair_file ="/Users/caceves/Desktop/ivar/data/contamination_tests/primer_pairs.tsv";
-   res = determine_threshold(g_args.seq_id, "/Users/caceves/Desktop/ivar/data/contamination_tests/sars_primers_strand.bed", g_args.primer_pair_file, 0);
+    res = determine_threshold(g_args.seq_id, "/Users/caceves/Desktop/ivar/data/contamination_tests/sars_primers_strand.bed", g_args.primer_pair_file, 0);
   } 
 
   //ivar removereads

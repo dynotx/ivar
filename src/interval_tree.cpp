@@ -128,14 +128,7 @@ void IntervalTree::find_amplicon_per_read(ITNode *root, uint32_t start, uint32_t
   //yes karthik, I know this is poorly written
   if(reverse){
     if((root->data->high_inner+1 - 10 < end) && (root->data->high_inner + 10 + 1 > end)){
-       if(root->data->low == 1285){
-         for(uint32_t y = 0; y < positions.size(); y++){
-            if(haplotypes[y] >= 0){
-              std::cout << positions[y] << " " << haplotypes[y] << "\n";
-            }
-          }
-       }
-       //we go through this additional step where we chop off positions not within the amplicon
+        //we go through this additional step where we chop off positions not within the amplicon
         std::vector<std::pair<std::uint32_t, int>> zipped = _trim_read_positions(haplotypes, positions, 
           root->data->low, root->data->high);
         if(zipped.size() == 0){return;}
@@ -154,7 +147,7 @@ void IntervalTree::find_amplicon_per_read(ITNode *root, uint32_t start, uint32_t
     }
   }else{
     if((root->data->low_inner - 10 - 1 < start) && (root->data->low_inner + 10 - 1 >  start)){
-       std::vector<std::pair<std::uint32_t, int>> zipped = _trim_read_positions(haplotypes, positions, 
+     std::vector<std::pair<std::uint32_t, int>> zipped = _trim_read_positions(haplotypes, positions, 
           root->data->low, root->data->high);
         if(zipped.size() == 0){return;}
         //unzip the newly modifed haplotypes

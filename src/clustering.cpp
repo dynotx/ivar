@@ -245,10 +245,6 @@ void parse_md_tag(uint8_t *aux, std::vector<int> &haplotypes, std::vector<uint32
         abs_start_pos += std::stoi(digits) + nucs.length();
         positions.push_back(abs_start_pos);
         nt = seq_nt16_str[bam_seqi(seq, abs_start_pos+index_loc - length)];
-        if(abs_start_pos == 1310){
-          std::cout << "in parse md tag" << std::endl;
-          std::cout << aux << " reverse " << reverse << std::endl;
-        }   
         nucleotides.push_back(nt);
         haplotypes.push_back(encoded_nucs(nt));
         //std::cout << abs_start_pos << " " << nt << " " << encoded_nucs(nt) << std::endl;
@@ -446,11 +442,11 @@ void k_means(int n_clusters, alglib::real_2d_array xy, cluster &cluster_results)
     exit(1);
   }
   
-  int i = 0;
+  /*int i = 0;
   while(i < n_clusters){
     std::cout << "center "<< i << " "  << rep.c[i][0] << std::endl;
     i++;
-  }
+  }*/
  
   calculate_sil_score(xy, rep, n_clusters, cluster_results);
   calculate_cluster_centers(xy, rep, n_clusters, cluster_results);
@@ -667,17 +663,6 @@ void count_haplotype_occurences(std::vector<std::vector<int>> all_haplotypes, st
     }
   }
   
-  //test lines
-  for(std::vector<int> haplo : save_haplotypes){
-    for(int h:haplo){
-      std::cout << h << " ";
-    }
-    std::cout << "\n";
-  }
-  for(float f : save_read_counts){
-    std::cout << f << "\n";
-  }
-
 }
 
 std::vector<float> create_frequency_matrix(IntervalTree &amplicons, std::vector<position> all_positions){
@@ -802,7 +787,7 @@ std::vector<float> create_frequency_matrix(IntervalTree &amplicons, std::vector<
     node->final_haplotypes = save_haplotypes;
     node->final_positions = final_positions;
     for(float d: save_read_counts){
-      std::cout << node->data->low << " " << d << " " << adjusted_read_count << " " << read_count <<  " " << d / adjusted_read_count << std::endl;
+      //std::cout << node->data->low << " " << d << " " << adjusted_read_count << " " << read_count <<  " " << d / adjusted_read_count << std::endl;
       node->frequency.push_back(d / adjusted_read_count);
       frequencies.push_back(d / adjusted_read_count);
     }
@@ -882,8 +867,9 @@ int determine_threshold(std::string bam, std::string bed, std::string pair_info,
   //test lines
   //print_allele_depths(all_positions[2716].ad);
 
+  //test lines
   //amplicons.print_amplicon_summary();  
-  amplicons.dump_amplicon_summary(output_amplicon);
+  //amplicons.dump_amplicon_summary(output_amplicon);
 
   //reshape it into a real 2d array for alglib
   alglib::real_2d_array xy;
@@ -894,9 +880,10 @@ int determine_threshold(std::string bam, std::string bed, std::string pair_info,
 
   //call kmeans clustering
   cluster cluster_results;
-  for (int n =2; n <= 3; n++){
+  for (int n =2; n <= 6; n++){
     k_means(n, xy, cluster_results);
-    std::cout << "n " << n << " sil " << cluster_results.sil_score << std::endl;
+    //test lines
+    //std::cout << "n " << n << " sil " << cluster_results.sil_score << std::endl;
   }
   
   return 0;

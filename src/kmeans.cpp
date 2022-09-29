@@ -33,7 +33,6 @@ float calculate_sil_single_point(std::vector<std::vector<double>> sorted_points,
     for(uint32_t x = 0; x < sorted_points[i].size(); x++){
       compare_point = sorted_points[i][x];
       double cur_center = i;
-      //std::cout << "i " << i << std::endl; 
       //belongs to the same cluster
       if(cur_center == center){
         internal_dist.push_back(abs(point-compare_point));
@@ -67,7 +66,8 @@ void sil_score(std::vector<std::vector<double>> sorted_points, std::vector<doubl
     }
     index += 1;
   }
-  std::cout << "sil " << average(sil_scores) << std::endl;
+  //test lines
+  //std::cout << "sil " << average(sil_scores) << std::endl;
 }
 
 double find_closest_center(std::vector<double> centers, alglib_impl::ae_int_t k, double point){
