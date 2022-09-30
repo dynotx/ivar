@@ -13,6 +13,7 @@
 #include "dataanalysis.h"
 #include "interval_tree.h"
 #include "allele_functions.h"
+#include "call_consensus_pileup.h"
 #include "primer_bed.h"
 #include "stdafx.h"
 #include "clustering.h"
@@ -811,6 +812,67 @@ std::vector<double> create_frequency_matrix(IntervalTree &amplicons, std::vector
   return(frequencies);
 }
 
+//acutal consensus call
+void call_consensus_from_vector(std::vector<position> all_positions, std::string seq_id, std::string out_file, uint8_t min_qual, double threshold, uint8_t min_depth, char gap, bool min_coverage_flag, double min_insert_threshold){
+  /*
+   * Function calls consensus on the sequence give a vector of positons where all 
+   * allele depths have been calculated.
+   */
+
+  std::ofstream fout((out_file+".fa").c_str());
+  std::ofstream tmp_qout((out_file+".qual.txt").c_str());
+  char *o = new char[out_file.length() + 1];
+  strcpy(o, out_file.c_str());
+  if(seq_id.empty()) {
+    fout << ">Consensus_" << basename(o) << "_threshold_" << threshold << "_quality_" << (uint16_t) min_qual  <<std::endl;
+  } else {
+    fout << ">" << seq_id <<std::endl;
+  }
+  delete [] o;
+  int ctr = 0, mdepth = 0;
+  uint32_t prev_pos = 0, pos = 0;
+  ret_t t;
+  std::string bases;
+  std::string qualities;
+  std::vector<allele> ad;
+  uint32_t bases_zero_depth = 0, bases_min_depth = 0, total_bases = 0;
+  for(position p : all_positions){
+    ad = p.ad;
+    ctr = 0;
+    pos = p.pos;
+    mdepth = p.depth;
+    total_bases++;
+    if(prev_pos == 0)   // No -/N before alignment starts
+      prev_pos = pos;
+    if((pos > prev_pos && min_coverage_flag)){
+      fout << std::string((pos - prev_pos) - 1, gap);
+      tmp_qout << std::string((pos - prev_pos) - 1, '!'); // ! represents 0 quality score.
+    }
+    if(mdepth >= min_depth){
+      t = get_consensus_allele(ad, min_qual, threshold, gap, min_insert_threshold);
+      fout << t.nuc;
+      tmp_qout << t.q;
+    } else{
+      bases_min_depth += 1;
+      if (mdepth == 0)
+  bases_zero_depth += 1;
+      if(min_coverage_flag){
+  fout << gap;
+  tmp_qout << '!';
+      }
+    }
+    ad.clear();
+    prev_pos = pos;
+  }
+  fout << "\n";     // Add new line character after end of sequence
+  tmp_qout << "\n";
+  tmp_qout.close();
+  fout.close();
+  std::cout << "Reference length: " << total_bases << std::endl;
+  std::cout << "Positions with 0 depth: " << bases_zero_depth << std::endl;
+  std::cout << "Positions with depth below " <<(unsigned) min_depth << ": " << bases_min_depth << std::endl;
+}
+
 //entry point for threshold determination
 int determine_threshold(std::string bam, std::string bed, std::string pair_info, int32_t primer_offset = 0){
   /*
@@ -822,9 +884,6 @@ int determine_threshold(std::string bam, std::string bed, std::string pair_info,
 
   //TODO pass this (prefix) as param
   std::string prefix = "amplicon";
-  std::string output_filename = prefix + ".fa";
-  std::cout << output_filename << std::endl;
-
   //preset the alleles to save time later
   std::vector<std::string> basic_nts = {"A", "C", "G", "T"};
   std::vector<allele> basic_alleles;
@@ -903,11 +962,16 @@ int determine_threshold(std::string bam, std::string bed, std::string pair_info,
   int best_cluster_index = 0;
   double best_sil_score = 0;
   double threshold = 0;
-
+  
+  uint32_t max_n = 6;
   std::vector<cluster> all_cluster_results;
+  //if we have fewer than 6 points, we can only have that many clusters
+  if(all_frequencies.size() < 6){
+    max_n = all_frequencies.size();
+  }
 
   //call kmeans clustering
-  for (int n =2, i = 0; n <= 6; n++, i++){
+  for (uint32_t n =2, i = 0; n <= max_n; n++, i++){
    //call kmeans clustering
    cluster cluster_results; //reset the results
    k_means(n, xy, cluster_results);
@@ -926,23 +990,17 @@ int determine_threshold(std::string bam, std::string bed, std::string pair_info,
   int largest_cluster_index = std::max_element(choice_cluster.centers.begin(), choice_cluster.centers.end()) - choice_cluster.centers.begin();
   //this marks the lower bound of the largest cluster
   threshold = choice_cluster.cluster_bounds[largest_cluster_index][0];
-  std::cout << "Threshold: " << threshold << std::endl;
 
-  std::vector<allele> ad;
   //TODO generalize these being passed as variables
-  //double min_insert_threshold = 0.08;
-  //uint8_t min_qual = 20;
-  //char gap = 'N';
-  //ret_t t;
+  double min_insert_threshold = 0.08;
+  uint8_t min_qual = 20;
+  char gap = 'N';
+  double min_depth = 1;
+  std::string seq_id = "testing_1_2_2"; //the > at top of consensus
+  bool min_coverage_flag = true;
+
   //call consensus
-  //iterate over all positions
-  for(uint32_t i = 0; i < all_positions.size(); i++){
-    //get allele vector for position
-    ad = all_positions[i].ad;
-    //t = get_consensus_allele(ad, min_qual, threshold, gap, min_insert_threshold);
-  }
-
-
+  call_consensus_from_vector(all_positions, seq_id, prefix, min_qual, threshold, min_depth, gap, min_coverage_flag, min_insert_threshold);
   return 0;
 }
 
