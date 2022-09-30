@@ -212,7 +212,7 @@ void print_version_info(){
 static const char *trim_opt_str = "i:b:f:x:p:m:q:s:ekh?";
 static const char *variants_opt_str = "p:t:q:m:r:g:h?";
 static const char *consensus_opt_str = "i:p:q:t:c:m:n:kfh?";
-static const char *autoconsensus_opt_str = "i:b:p:q:t:c:m:n:kfh?";
+static const char *autoconsensus_opt_str = "i:p:q:t:c:m:n:kfh?";
 static const char *removereads_opt_str = "i:p:t:b:h?";
 static const char *filtervariants_opt_str = "p:t:f:h?";
 static const char *getmasked_opt_str = "i:b:f:p:h?";
@@ -457,10 +457,50 @@ int main(int argc, char* argv[]){
     g_args.keep_min_coverage = true;
     g_args.min_insert_threshold = 0.8;
     int32_t primer_offset = 0;
+    g_args.prefix = "";
     std::string prefix = "amplicon";
     std::string bed = "/Users/caceves/Desktop/ivar/data/contamination_tests/sars_primers_strand.bed";
     g_args.primer_pair_file ="/Users/caceves/Desktop/ivar/data/contamination_tests/primer_pairs.tsv";
-    res = determine_threshold(g_args.seq_id, bed, g_args.primer_pair_file, primer_offset, g_args.min_insert_threshold, g_args.min_qual, g_args.gap, g_args.min_depth, g_args.keep_min_coverage, prefix);
+    while( opt != -1 ) {
+      switch( opt ) {
+      case 't':
+	g_args.min_threshold = atof(optarg);
+	break;
+      case 'c':
+	g_args.min_insert_threshold = atof(optarg);
+	break;
+       case 'i':
+	g_args.seq_id = optarg;
+	break;
+      case 'p':
+	g_args.prefix = optarg;
+	break;
+      case 'm':
+	g_args.min_depth = std::stoi(optarg);
+	break;
+      case 'n':
+	g_args.gap = optarg[0];
+	break;
+      case 'q':
+	g_args.min_qual = std::stoi(optarg);
+	break;
+      case 'k':
+	g_args.keep_min_coverage = false;
+      case 'f':
+  g_args.primer_pair_file = optarg;
+  break;
+      case 'g':
+	break;
+      case 'h':
+      case '?':
+	print_autoconsensus_usage();
+	return 0;
+	break;
+      }
+    opt = getopt( argc, argv, autoconsensus_opt_str);
+  }
+  std::cout << g_args.prefix << std::endl;
+  res = determine_threshold(g_args.seq_id, bed, g_args.primer_pair_file, primer_offset, g_args.min_insert_threshold, g_args.min_qual, g_args.gap, g_args.min_depth, g_args.keep_min_coverage, prefix);
   }
   //ivar removereads
   else if (cmd.compare("removereads") == 0){
