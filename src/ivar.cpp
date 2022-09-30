@@ -448,18 +448,20 @@ int main(int argc, char* argv[]){
   // ivar autoconsensus
   else if (cmd.compare("autoconsensus") == 0){
     opt = getopt( argc, argv, autoconsensus_opt_str);
-    g_args.seq_id = "/Users/caceves/Desktop/ivar/data/contamination_tests/simulated_alpha_beta_90_10.bam";
-    //g_args.seq_id = "/Users/caceves/Desktop/ivar/data/contamination_tests/test.calmd.bam";
+    //g_args.seq_id = "/Users/caceves/Desktop/ivar/data/contamination_tests/simulated_alpha_beta_90_10.bam";
+    g_args.seq_id = "/Users/caceves/Desktop/ivar/data/contamination_tests/test.calmd.bam"; //this changes to output name...
     g_args.min_threshold = 0;
     g_args.min_depth = 10;
     g_args.gap = 'N';
     g_args.min_qual = 20;
     g_args.keep_min_coverage = true;
     g_args.min_insert_threshold = 0.8;
+    int32_t primer_offset = 0;
+    std::string prefix = "amplicon";
+    std::string bed = "/Users/caceves/Desktop/ivar/data/contamination_tests/sars_primers_strand.bed";
     g_args.primer_pair_file ="/Users/caceves/Desktop/ivar/data/contamination_tests/primer_pairs.tsv";
-    res = determine_threshold(g_args.seq_id, "/Users/caceves/Desktop/ivar/data/contamination_tests/sars_primers_strand.bed", g_args.primer_pair_file, 0);
-  } 
-
+    res = determine_threshold(g_args.seq_id, bed, g_args.primer_pair_file, primer_offset, g_args.min_insert_threshold, g_args.min_qual, g_args.gap, g_args.min_depth, g_args.keep_min_coverage, prefix);
+  }
   //ivar removereads
   else if (cmd.compare("removereads") == 0){
     opt = getopt( argc, argv, removereads_opt_str);

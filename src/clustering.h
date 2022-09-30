@@ -35,7 +35,9 @@ void k_means(int n_clusters, alglib::real_2d_array xy, cluster &cluster_results)
 std::vector<double> calculate_cluster_centers(alglib::real_2d_array X, alglib::kmeansreport rep, int n_clusters);
 double cluster_point_distances(alglib::real_2d_array X, alglib::kmeansreport rep, double point, double center, int n_clusters);
 void calculate_sil_score(alglib::real_2d_array X, alglib::kmeansreport rep,int n_clusters, cluster &cluster_results);
-int determine_threshold(std::string bam, std::string bed, std::string pair_info, int32_t primer_offset);
+
+int determine_threshold(std::string bam, std::string bed, std::string pair_info, int32_t primer_offset, double min_insert_threshold, uint8_t min_qual, char gap, double min_depth, bool min_coverage_flag, std::string prefix);
+
 std::string decoded_nucs(int tmp);
 std::vector<std::vector<int>> transpose(const std::vector<std::vector<int>> data);
 #endif

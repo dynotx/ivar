@@ -874,16 +874,14 @@ void call_consensus_from_vector(std::vector<position> all_positions, std::string
 }
 
 //entry point for threshold determination
-int determine_threshold(std::string bam, std::string bed, std::string pair_info, int32_t primer_offset = 0){
+int determine_threshold(std::string bam, std::string bed, std::string pair_info, int32_t primer_offset, double min_insert_threshold, uint8_t min_qual, char gap, double min_depth, bool min_coverage_flag, std::string prefix){
   /*
    * @param bam : path to the bam file
    * @param bed : path to the bed file
    * @param pair_info : path to the primer pair .tsv file
    * @param primer_offset : 
    */
-
-  //TODO pass this (prefix) as param
-  std::string prefix = "amplicon";
+  std::string seq_id = "amplicon";
   //preset the alleles to save time later
   std::vector<std::string> basic_nts = {"A", "C", "G", "T"};
   std::vector<allele> basic_alleles;
@@ -981,26 +979,19 @@ int determine_threshold(std::string bam, std::string bed, std::string pair_info,
       best_cluster_index = i;
     }
     //test lines
-    std::cout << "n " << n << " sil " << cluster_results.sil_score << std::endl;
+    //std::cout << "n " << n << " sil " << cluster_results.sil_score << std::endl;
   }
-  std::cout << "Best sil score: " << best_sil_score << " at index " << best_cluster_index << std::endl;
-
   cluster choice_cluster = all_cluster_results[best_cluster_index];
   //find the largest cluster center
   int largest_cluster_index = std::max_element(choice_cluster.centers.begin(), choice_cluster.centers.end()) - choice_cluster.centers.begin();
   //this marks the lower bound of the largest cluster
   threshold = choice_cluster.cluster_bounds[largest_cluster_index][0];
 
-  //TODO generalize these being passed as variables
-  double min_insert_threshold = 0.08;
-  uint8_t min_qual = 20;
-  char gap = 'N';
-  double min_depth = 1;
-  std::string seq_id = "testing_1_2_2"; //the > at top of consensus
-  bool min_coverage_flag = true;
-
   //call consensus
   call_consensus_from_vector(all_positions, seq_id, prefix, min_qual, threshold, min_depth, gap, min_coverage_flag, min_insert_threshold);
+
+  //dump additional information to a file such as (1) cluster values (2) cluster centers
+
   return 0;
 }
 
