@@ -943,6 +943,11 @@ int determine_threshold(std::string bam, std::string bed, std::string pair_info,
   //extract those reads into a format useable in the clustering
   std::vector<double> all_frequencies = create_frequency_matrix(amplicons, all_positions);
   //remove perfect 1 haplotypes
+  all_frequencies.erase(std::remove_if(
+    all_frequencies.begin(), all_frequencies.end(),
+    [](double& x) { 
+        return(x==1);
+    }), all_frequencies.end());
   //test lines
   //print_allele_depths(all_positions[2716].ad);
 
