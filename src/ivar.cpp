@@ -205,7 +205,7 @@ void print_version_info(){
 static const char *trim_opt_str = "i:b:f:x:p:m:q:s:ekh?";
 static const char *variants_opt_str = "p:t:q:m:r:g:h?";
 static const char *consensus_opt_str = "i:p:q:t:c:m:n:kfh?";
-static const char *autoconsensus_opt_str = "i:p:b:q:t:c:m:n:kfh?";
+static const char *autoconsensus_opt_str = "i:p:f:b:q:c:m:n:kh?";
 static const char *removereads_opt_str = "i:p:t:b:h?";
 static const char *filtervariants_opt_str = "p:t:f:h?";
 static const char *getmasked_opt_str = "i:b:f:p:h?";
@@ -454,9 +454,6 @@ int main(int argc, char* argv[]){
     g_args.primer_pair_file ="";
     while( opt != -1 ) {
       switch( opt ) {
-      case 't':
-	g_args.min_threshold = atof(optarg);
-	break;
       case 'b':
   g_args.bed = optarg;      
   break;
