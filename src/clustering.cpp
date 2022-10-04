@@ -896,13 +896,6 @@ int determine_threshold(std::string bam, std::string bed, std::string pair_info,
   //make sure the alleles get recorded by position
   std::vector<position> all_positions;
   //populate with empty positions for each thing in reference
-  for(uint32_t i=0; i < 29903; i++){
-    position new_position;
-    new_position.pos = i;
-    new_position.depth = 0;
-    new_position.ad = basic_alleles;
-    all_positions.push_back(new_position);
-  }
   std::string output_amplicon = prefix + ".txt";
   //initialize haplotype data structure
   std::vector<primer> primers;
@@ -911,10 +904,18 @@ int determine_threshold(std::string bam, std::string bed, std::string pair_info,
   primers = populate_from_file(bed, primer_offset);
   amplicons = populate_amplicons(pair_info, primers);
   
-  samFile *in = hts_open(bam.c_str(), "r");
-  
+  samFile *in = hts_open(bam.c_str(), "r");  
   hts_idx_t *idx = sam_index_load(in, bam.c_str());
   bam_hdr_t *header = sam_hdr_read(in);
+
+  uint32_t *ref_length = header->target_len;
+  for(uint32_t i=0; i < *ref_length; i++){
+    position new_position;
+    new_position.pos = i;
+    new_position.depth = 0;
+    new_position.ad = basic_alleles;
+    all_positions.push_back(new_position);
+  }
 
   bam1_t *aln = bam_init1();
   hts_itr_t *iter = NULL;
