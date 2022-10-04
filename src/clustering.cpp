@@ -296,10 +296,6 @@ void parse_md_tag(uint8_t *aux, std::vector<int> &haplotypes, std::vector<uint32
     update_allele_depth(all_positions, ref_nt, ref_pos);
   }
   if(positions.size() > 0){
-    //test lines
-    //for(uint32_t x = 0; x < positions.size(); x++){
-    //  std::cout << positions[x] << " " << nucleotides[x] << std::endl;
-    //}
     update_allele_depth(all_positions, nucleotides, positions);
   }
 }
@@ -751,10 +747,6 @@ std::vector<double> create_frequency_matrix(IntervalTree &amplicons, std::vector
         if(haplotype[i] >= 0){
           allele_positions = all_positions[position[i]];
           double freq = allele_positions.ad[haplotype[i]].depth / allele_positions.depth;
-          //if(node->data->low == 23047){
-            //std::cout << position[i] << " " << haplotype[i] << " " << allele_positions.ad[haplotype[i]].depth << " " << allele_positions.depth << std::endl;
-            //std::cout << "freq " << freq << std::endl;
-          //}
           if(freq <= 0.03 || allele_positions.ad[haplotype[i]].depth < 10){
             haplotype[i] = -1;
           }
@@ -804,7 +796,6 @@ std::vector<double> create_frequency_matrix(IntervalTree &amplicons, std::vector
     node->final_haplotypes = save_haplotypes;
     node->final_positions = final_positions;
     for(double d: save_read_counts){
-      //std::cout << node->data->low << " " << d << " " << adjusted_read_count << " " << read_count <<  " " << d / adjusted_read_count << std::endl;
       node->frequency.push_back(d / adjusted_read_count);
       frequencies.push_back(d / adjusted_read_count);
     }
@@ -881,8 +872,11 @@ int determine_threshold(std::string bam, std::string bed, std::string pair_info,
    * @param pair_info : path to the primer pair .tsv file
    * @param primer_offset : 
    */
+
+  //generate the .fa consensus file header
   std::string suffix = ".bam";
   std::string seq_id = "Consensus_" + bam.substr(0, bam.length() - suffix.length());
+  
   //preset the alleles to save time later
   std::vector<std::string> basic_nts = {"A", "C", "G", "T"};
   std::vector<allele> basic_alleles;
@@ -993,6 +987,11 @@ int determine_threshold(std::string bam, std::string bed, std::string pair_info,
   int largest_cluster_index = std::max_element(choice_cluster.centers.begin(), choice_cluster.centers.end()) - choice_cluster.centers.begin();
   //this marks the lower bound of the largest cluster
   threshold = choice_cluster.cluster_bounds[largest_cluster_index][0];
+
+  //determine whether or not we should call consensus
+  if(choice_cluster.sil_score <= 0.80 || threshold <= 0.5){
+    return(0);
+  }
 
   //call consensus
   call_consensus_from_vector(all_positions, seq_id, prefix, min_qual, threshold, min_depth, gap, min_coverage_flag, min_insert_threshold);
