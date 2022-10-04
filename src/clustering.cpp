@@ -881,7 +881,8 @@ int determine_threshold(std::string bam, std::string bed, std::string pair_info,
    * @param pair_info : path to the primer pair .tsv file
    * @param primer_offset : 
    */
-  std::string seq_id = "amplicon";
+  std::string suffix = ".bam";
+  std::string seq_id = bam.substr(0, bam.length() - suffix.length());
   //preset the alleles to save time later
   std::vector<std::string> basic_nts = {"A", "C", "G", "T"};
   std::vector<allele> basic_alleles;
