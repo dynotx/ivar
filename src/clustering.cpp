@@ -882,7 +882,7 @@ int determine_threshold(std::string bam, std::string bed, std::string pair_info,
    * @param primer_offset : 
    */
   std::string suffix = ".bam";
-  std::string seq_id = bam.substr(0, bam.length() - suffix.length());
+  std::string seq_id = "Consensus_" + bam.substr(0, bam.length() - suffix.length());
   //preset the alleles to save time later
   std::vector<std::string> basic_nts = {"A", "C", "G", "T"};
   std::vector<allele> basic_alleles;
@@ -948,7 +948,7 @@ int determine_threshold(std::string bam, std::string bed, std::string pair_info,
 
   //test lines
   //amplicons.print_amplicon_summary();  
-  //amplicons.dump_amplicon_summary(output_amplicon);
+  amplicons.dump_amplicon_summary(output_amplicon);
 
   //reshape it into a real 2d array for alglib
   alglib::real_2d_array xy;
@@ -991,7 +991,19 @@ int determine_threshold(std::string bam, std::string bed, std::string pair_info,
   //call consensus
   call_consensus_from_vector(all_positions, seq_id, prefix, min_qual, threshold, min_depth, gap, min_coverage_flag, min_insert_threshold);
 
+  std::string cluster_filename = prefix + "_cluster_results.txt";
+  ofstream file;
+  file.open(cluster_filename, ios_base::app);
   //dump additional information to a file such as (1) cluster values (2) cluster centers
+  for(cluster x : all_cluster_results){
+    file << x.sil_score << "\t";
+    for(double c : x.centers){
+      file << c << "_";
+    }
+    file << "\t";
+    file << x.n_clusters << "\n";
+  }
+  file.close();
 
   return 0;
 }
