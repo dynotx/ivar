@@ -136,21 +136,16 @@ void print_consensus_usage(){
     "           -i    (Optional) Name of fasta header. By default, the prefix is used to create the fasta header in the following format, Consensus_<prefix>_threshold_<frequency-threshold>_quality_<minimum-quality>_<min-insert-threshold>\n"
     "           -f    (Optional) Primer pair file .tsv\n";
 }
-//TODO
+
 void print_autoconsensus_usage(){
   std::cout <<
-    "Usage: samtools mpileup -aa -A -d 0 -Q 0 <input.bam> | ivar consensus -p <prefix> \n\n"
-    "Note : samtools mpileup output must be piped into `ivar consensus`\n\n"
+    "Usage: ivar consensus -p <prefix> -i <input.bam> -f <primer_pairs.tsv> -b <primers.bed>\n\n"
+    "Note : MD tag must be set prior to `ivar autoconsensus`\n\n"
     "Input Options    Description\n"
+    "           -i    (Required) Input bam file to call consensus on\n"
+    "           -f    (Required) Primer pair file .tsv\n"
+    "           -b    (Required) Bed file containing primer information\n"
     "           -q    Minimum quality score threshold to count base (Default: 20)\n"
-    "           -t    Minimum frequency threshold(0 - 1) to call consensus. (Default: 0)\n"
-    "                 Frequently used thresholds | Description\n"
-    "                 ---------------------------|------------\n"
-    "                                          0 | Majority or most common base\n"
-    "                                        0.2 | Bases that make up atleast 20% of the depth at a position\n"
-    "                                        0.5 | Strict or bases that make up atleast 50% of the depth at a position\n"
-    "                                        0.9 | Strict or bases that make up atleast 90% of the depth at a position\n"
-    "                                          1 | Identical or bases that make up 100% of the depth at a position. Will have highest ambiguities\n"
     "           -c    Minimum insertion frequency threshold(0 - 1) to call consensus. (Default: 0.8)\n"
     "                 Frequently used thresholds | Description\n"
     "                 ---------------------------|------------\n"
@@ -163,9 +158,7 @@ void print_autoconsensus_usage(){
     "           -k    If '-k' flag is added, regions with depth less than minimum depth will not be added to the consensus sequence. Using '-k' will override any option specified using -n \n"
     "           -n    (N/-) Character to print in regions with less than minimum coverage(Default: N)\n\n"
     "Output Options   Description\n"
-    "           -p    (Required) Prefix for the output fasta file and quality file\n"
-    "           -i    (Optional) Name of fasta header. By default, the prefix is used to create the fasta header in the following format, Consensus_<prefix>_threshold_<frequency-threshold>_quality_<minimum-quality>_<min-insert-threshold>\n"
-    "           -f    (Optional) Primer pair file .tsv\n";
+    "           -p    (Required) Prefix for the output fasta file and quality file\n";
 }
 
 void print_removereads_usage(){
@@ -212,7 +205,7 @@ void print_version_info(){
 static const char *trim_opt_str = "i:b:f:x:p:m:q:s:ekh?";
 static const char *variants_opt_str = "p:t:q:m:r:g:h?";
 static const char *consensus_opt_str = "i:p:q:t:c:m:n:kfh?";
-static const char *autoconsensus_opt_str = "i:p:q:t:c:m:n:kfh?";
+static const char *autoconsensus_opt_str = "i:p:b:q:t:c:m:n:kfh?";
 static const char *removereads_opt_str = "i:p:t:b:h?";
 static const char *filtervariants_opt_str = "p:t:f:h?";
 static const char *getmasked_opt_str = "i:b:f:p:h?";
@@ -448,8 +441,7 @@ int main(int argc, char* argv[]){
   // ivar autoconsensus
   else if (cmd.compare("autoconsensus") == 0){
     opt = getopt( argc, argv, autoconsensus_opt_str);
-    //g_args.seq_id = "/Users/caceves/Desktop/ivar/data/contamination_tests/simulated_alpha_beta_90_10.bam";
-    g_args.seq_id = "/Users/caceves/Desktop/ivar/data/contamination_tests/test.calmd.bam"; //this changes to output name...
+    g_args.seq_id = "";
     g_args.min_threshold = 0;
     g_args.min_depth = 10;
     g_args.gap = 'N';
@@ -458,14 +450,16 @@ int main(int argc, char* argv[]){
     g_args.min_insert_threshold = 0.8;
     int32_t primer_offset = 0;
     g_args.prefix = "";
-    std::string prefix = "amplicon";
-    std::string bed = "/Users/caceves/Desktop/ivar/data/contamination_tests/sars_primers_strand.bed";
-    g_args.primer_pair_file ="/Users/caceves/Desktop/ivar/data/contamination_tests/primer_pairs.tsv";
+    g_args.bed = "";
+    g_args.primer_pair_file ="";
     while( opt != -1 ) {
       switch( opt ) {
       case 't':
 	g_args.min_threshold = atof(optarg);
 	break;
+      case 'b':
+  g_args.bed = optarg;      
+  break;
       case 'c':
 	g_args.min_insert_threshold = atof(optarg);
 	break;
@@ -499,8 +493,11 @@ int main(int argc, char* argv[]){
       }
     opt = getopt( argc, argv, autoconsensus_opt_str);
   }
-  std::cout << g_args.prefix << std::endl;
-  res = determine_threshold(g_args.seq_id, bed, g_args.primer_pair_file, primer_offset, g_args.min_insert_threshold, g_args.min_qual, g_args.gap, g_args.min_depth, g_args.keep_min_coverage, prefix);
+  if(g_args.seq_id.empty() || g_args.prefix.empty() || g_args.bed.empty() || g_args.primer_pair_file.empty()){
+      print_autoconsensus_usage();
+      return -1;
+  }
+  res = determine_threshold(g_args.seq_id, g_args.bed, g_args.primer_pair_file, primer_offset, g_args.min_insert_threshold, g_args.min_qual, g_args.gap, g_args.min_depth, g_args.keep_min_coverage, g_args.prefix);
   }
   //ivar removereads
   else if (cmd.compare("removereads") == 0){
