@@ -32,7 +32,7 @@ void reset_positions(std::vector<position> &all_positions){
     all_positions.push_back(new_position);
   }
 }
-int _integration_test_consensus(){
+int _integreation_test_consensus(){
   /*
    * Tests the consensus call using two approaches. First, we call consensus using autothresholding.
    * Second, we call consensus using the traditional mpileup and set the same threshold.
@@ -42,26 +42,23 @@ int _integration_test_consensus(){
   return(0);
 }
 
-int _unit_test_haplotype_extraction(){
+int _integreation_create_haplotypes(){
+  return(0);
+}
+
+int _unit_test_parse_md_tag(){
   /*
    * @return success : 0 for passing else failing 
    *
-   * Looks for the correction extraction of (1) haplotypes, (2) positions, and (3) read counts
-   * for an amplicon.
+   * Tests the process of parsing the MD tag.
    */
   int success = 0;
-  
-  int32_t primer_offset = 0;
-  std::string pair_info = "../data/contamination_tests/primer_pairs.tsv";
-  std::string bed = "../data/contamination_tests/sars_primers_strand.bed";
 
-  std::vector<double> return_frequencies;
-  IntervalTree amplicons;
+  uint32_t abs_start_pos = 23620;
+  uint32_t abs_end_pos = 23727;
   std::vector<position> all_positions;
-  std::vector<primer> primers; 
-  //populate amplicons for sars-cov-2
-  primers = populate_from_file(bed, primer_offset);
-  amplicons = populate_amplicons(pair_info, primers);
+  std::vector<double> return_frequencies;
+  bool reverse = false;
 
   reset_positions(all_positions);  
 
@@ -69,10 +66,19 @@ int _unit_test_haplotype_extraction(){
    * Using the amplicon between 23601-23619 23728-23751.
    *
    * Case A. Substituion in the primer region.
-   *
-   *
-   *
+   *    Return should be an empty haplotype vector.
+   * Case B. Deletion 
    */
+  uint8_t aux = (uint8_t) 'Z2A7';
+  uint8_t seq = (uint8_t) 'ZTTT';
+  uint32_t correction_factor = 10;
+  uint32_t length = 10;
+  std::vector<int> haplotypes;
+  std::vector<uint32_t> positions;
+  std::vector<uint32_t> ignore_positions;
+  
+
+  parse_md_tag(aux, haplotypes, positions, abs_start_pos, all_positions, seq, length, correction_factor, abs_end_pos, ignore_positions, reverse);
   
 
   return(success);
@@ -101,11 +107,18 @@ int _unit_test_frequencies(){
   /* Generate some fake haplotypes / positions to test.
    * Using the amplicon between 23601-23619 23728-23751.
    *
-   * In this fictional genome 23700 reference is T
+   * In this fictional genome 23700 reference is T, 23701 reference is also T.
    *
-   * Case A. Drop position 23700 w/ mutation frequency < 0.03, return empty frequency vector
-   * Case B. Drop position 23700 w/ mutation depth < 10, return empty frequency vector
-   * Case C. Two mutations at 23700 in proportions 0.30, 0.20, match ref 0.50
+   * Case A. Testing the retention of mutations below/above 0.03 total depth freq.
+   *    Drop position 23700 w/ mutation frequency < 0.03, return empty frequency vector
+   *    Keep position 23701 w/ mutation frequency @ 0.1, retrun frequency vector w/ 0.10
+   * Case B. Relative proportions of mutations in the same position.
+   *    Two mutations at 23700 in proportions 0.30, 0.20, match ref 0.50
+   * Case C. Handling soft clipped reads.
+   *    One mutation at 0.20, 0.60 match ref, and 0.20 soft clipped. SC get eliminated
+   *    from the total making final proportions 0.25 mutation 0.75 match ref
+   * Case D. Testing the use of a deletion in creation of frequencies.
+   *    One deletion at 23700 0.20 with the other 0.80 matching the reference.
    */
 
   //declare some baseline variables
@@ -117,14 +130,15 @@ int _unit_test_frequencies(){
   uint32_t abs_end_pos = 23727;
   std::vector<std::string> nucleotides;
   std::vector<uint32_t> range = {23620, 23727};
+  std::vector<double> frequency_gt = {0.1};
+  int i = 0;
 
-  //Case A 
+  //Case A - Don't return mutations <= 0.03, do return mutations > 0.03 frequency 
   positions = {23700};
   haplotypes = {-2};
   nucleotides = {"T"};
-  int i = 0;
-  //add haplotypes that match the reference 1000 times
-  while(i < 1000){
+  //add haplotypes that match the reference 100 times
+  while(i < 97){
     amplicons.find_amplicon_per_read(abs_start_pos, abs_end_pos, haplotypes, positions, reverse, range, all_positions);
     update_allele_depth(all_positions, nucleotides, positions);
     i++;
@@ -134,24 +148,135 @@ int _unit_test_frequencies(){
   haplotypes = {0};
   nucleotides = {"A"};
   i = 0;
-  //add a mutation 10 time
+  //add a mutation 3 times for 3% frequency
+  while(i < 3){
+    amplicons.find_amplicon_per_read(abs_start_pos, abs_end_pos, haplotypes, positions, reverse, range, all_positions);
+    update_allele_depth(all_positions, nucleotides, positions);
+    i++;
+  }
+  //add a mutation at over 3% frequency
+  positions.clear();
+  haplotypes.clear();
+  nucleotides.clear();
+  positions = {23701};
+  nucleotides = {"T"};
+  haplotypes = {-2};
+  i = 0;
+  while(i < 90){
+    amplicons.find_amplicon_per_read(abs_start_pos, abs_end_pos, haplotypes, positions, reverse, range, all_positions);
+    update_allele_depth(all_positions, nucleotides, positions);
+    i++;
+  }
+  nucleotides = {"A"};
+  haplotypes = {0};
+  i = 0;
+  //indicates a mutation at 10% frequency
+  while(i < 10){
+    amplicons.find_amplicon_per_read(abs_start_pos, abs_end_pos, haplotypes, positions, reverse, range, all_positions);
+    update_allele_depth(all_positions, nucleotides, positions);
+    i++;
+  }
+
+  //try to create the frequency matrix
+  frequencies = create_frequency_matrix(amplicons, all_positions);
+  if(frequencies == frequency_gt){
+    success += 1;
+  }
+
+  //Case B - Testing mulitple mutations at one position.
+  frequency_gt = {0.2, 0.3};
+  amplicons.clear();
+  reset_positions(all_positions);
+  positions = {23700};
+  haplotypes = {-2};
+  nucleotides = {"T"};
+  i = 0;
+  //adding 50 match ref, 20 substitution to C, 30 substitution to A
+  while(i < 50){
+    amplicons.find_amplicon_per_read(abs_start_pos, abs_end_pos, haplotypes, positions, reverse, range, all_positions);
+    update_allele_depth(all_positions, nucleotides, positions);
+    i++;
+  }
+  i = 0;
+  haplotypes = {1};
+  nucleotides = {"C"};
+  while(i < 20){
+    amplicons.find_amplicon_per_read(abs_start_pos, abs_end_pos, haplotypes, positions, reverse, range, all_positions);
+    update_allele_depth(all_positions, nucleotides, positions);
+    i++;
+  }
+  i = 0;
+  haplotypes = {0};
+  nucleotides = {"A"};
   while(i < 30){
     amplicons.find_amplicon_per_read(abs_start_pos, abs_end_pos, haplotypes, positions, reverse, range, all_positions);
     update_allele_depth(all_positions, nucleotides, positions);
     i++;
   }
-  //try to create the frequency matrix
   frequencies = create_frequency_matrix(amplicons, all_positions);
-  if(frequencies.size() == 0){
+  if(frequencies == frequency_gt){
     success += 1;
-    std::cout << "success" << std::endl;
   }
 
-  //Case B
-  nucleotides.clear();
-  haplotypes.clear();
+  //Case C - testing the removal of SC from final read count
+  frequency_gt = {0.25};
+  amplicons.clear();
+  reset_positions(all_positions);
+  haplotypes = {-2};
+  nucleotides = {"T"};
+  i = 0;
+  //adding 60 match ref, 20 substitution to C, 20 soft clipped
+  while(i < 60){
+    amplicons.find_amplicon_per_read(abs_start_pos, abs_end_pos, haplotypes, positions, reverse, range, all_positions);
+    update_allele_depth(all_positions, nucleotides, positions);
+    i++;
+  }
+  i = 0;
+  haplotypes = {1};
+  nucleotides = {"C"};
+  while(i < 20){
+    amplicons.find_amplicon_per_read(abs_start_pos, abs_end_pos, haplotypes, positions, reverse, range, all_positions);
+    update_allele_depth(all_positions, nucleotides, positions);
+    i++;
+  }
+  i = 0;
+  haplotypes = {-1};
+  //don't need to update allele depths for SC
+  while(i < 20){
+    amplicons.find_amplicon_per_read(abs_start_pos, abs_end_pos, haplotypes, positions, reverse, range, all_positions);
+    i++;
+  }
+  frequencies = create_frequency_matrix(amplicons, all_positions);
+  if(frequencies == frequency_gt){
+    success += 1;
+  }
 
-  return(0);
+  //Case D - Test for the use of a deletion
+  frequency_gt = {0.20};
+  amplicons.clear();
+  reset_positions(all_positions);
+  haplotypes = {-2};
+  nucleotides = {"T"};
+  i = 0;
+  //adding 80 match ref, 20 deletion
+  while(i < 80){
+    amplicons.find_amplicon_per_read(abs_start_pos, abs_end_pos, haplotypes, positions, reverse, range, all_positions);
+    update_allele_depth(all_positions, nucleotides, positions);
+    i++;
+  }
+  i = 0;
+  haplotypes = {4};
+  nucleotides = {"*"}; //this indicate deletion
+  while(i < 20){
+    amplicons.find_amplicon_per_read(abs_start_pos, abs_end_pos, haplotypes, positions, reverse, range, all_positions);
+    update_allele_depth(all_positions, nucleotides, positions);
+    i++;
+  }
+  frequencies = create_frequency_matrix(amplicons, all_positions);
+  if(frequencies == frequency_gt){
+    success += 1;
+  }
+  return(success);
 }
 
 int _unit_test_sil_score(){
@@ -190,8 +315,11 @@ int _unit_test_kmeans(){
 }
 
 int main(){
-  int success = 2; //count total number of tests
-  _unit_test_frequencies();
+  int success = 4; //count total number of tests
+  success -= _unit_test_frequencies(); //contains 4 tests
+  success -= _unit_test_parse_md_tag(); //contains 2 tests
+  success -= _integreation_create_haplotypes();
+  
   std::cout << "success: " << success << std::endl;
   //success -= _unit_test_kmeans();
   //success -= _unit_test_sil_score();
