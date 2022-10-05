@@ -20,7 +20,7 @@ void IntervalTree::clear(ITNode *root){
   root->ranges.clear();
   root->final_positions.clear();
   root->final_haplotypes.clear(); 
-  clear(root);
+  clear(root->right);
 }
 
 // A utility function to insert a new Interval Search Tree Node
