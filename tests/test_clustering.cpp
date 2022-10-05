@@ -6,8 +6,40 @@
 #include "../src/clustering.h"
 #include "../src/kmeans.h"
 
-void reset_positions(std::vector<position> all_positions){
+void reset_positions(std::vector<position> &all_positions){
+  /*
+   * @param all_positions : vector containing position objects for whole genome
+   * Reset function to basic alleles with no depths for the position vector.
+   * Meant to allow multiple tests within a single function.
+   */
+  all_positions.clear();
 
+  //set up basic nucleotides
+  std::vector<std::string> basic_nts = {"A", "C", "G", "T"};
+  std::vector<allele> basic_alleles;
+  for(std::string nt : basic_nts){
+    allele new_allele;
+    new_allele.nuc = nt;
+    new_allele.depth = 0;
+    basic_alleles.push_back(new_allele);
+  }
+  //populate all positions
+  for(uint32_t i=0; i < 29903; i++){
+    position new_position;
+    new_position.pos = i;
+    new_position.depth = 0;
+    new_position.ad = basic_alleles;
+    all_positions.push_back(new_position);
+  }
+}
+int _integration_test_consensus(){
+  /*
+   * Tests the consensus call using two approaches. First, we call consensus using autothresholding.
+   * Second, we call consensus using the traditional mpileup and set the same threshold.
+   * consensus sequences should be identical.
+   */
+
+  return(0);
 }
 
 int _unit_test_haplotype_extraction(){
@@ -31,8 +63,7 @@ int _unit_test_haplotype_extraction(){
   primers = populate_from_file(bed, primer_offset);
   amplicons = populate_amplicons(pair_info, primers);
 
-  //populate all positions
-  
+  reset_positions(all_positions);  
 
   /* Generate some fake haplotypes / positions to test.
    * Using the amplicon between 23601-23619 23728-23751.
@@ -65,25 +96,7 @@ int _unit_test_frequencies(){
   //populate amplicons for sars-cov-2
   primers = populate_from_file(bed, primer_offset);
   amplicons = populate_amplicons(pair_info, primers);
-
-  //set up basic nucleotides
-  std::vector<std::string> basic_nts = {"A", "C", "G", "T"};
-  std::vector<allele> basic_alleles;
-  for(std::string nt : basic_nts){
-    allele new_allele;
-    new_allele.nuc = nt;
-    new_allele.depth = 0;
-    basic_alleles.push_back(new_allele);
-  }
-
-  //populate all positions
-  for(uint32_t i=0; i < 29903; i++){
-    position new_position;
-    new_position.pos = i;
-    new_position.depth = 0;
-    new_position.ad = basic_alleles;
-    all_positions.push_back(new_position);
-  }
+  reset_positions(all_positions);
 
   /* Generate some fake haplotypes / positions to test.
    * Using the amplicon between 23601-23619 23728-23751.
@@ -122,7 +135,7 @@ int _unit_test_frequencies(){
   nucleotides = {"A"};
   i = 0;
   //add a mutation 10 time
-  while(i < 10){
+  while(i < 30){
     amplicons.find_amplicon_per_read(abs_start_pos, abs_end_pos, haplotypes, positions, reverse, range, all_positions);
     update_allele_depth(all_positions, nucleotides, positions);
     i++;
@@ -131,6 +144,7 @@ int _unit_test_frequencies(){
   frequencies = create_frequency_matrix(amplicons, all_positions);
   if(frequencies.size() == 0){
     success += 1;
+    std::cout << "success" << std::endl;
   }
 
   //Case B
