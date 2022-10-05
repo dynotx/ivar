@@ -5,6 +5,24 @@ IntervalTree::IntervalTree(){
   _root = NULL;
 }
 
+//clear all values associated with amplicons
+void IntervalTree::clear(ITNode *root){
+  /*
+   * Loop through the interval tree and clear data from each node.
+   */
+  if(root == NULL){
+    return;
+  }
+  root->read_count = 0;
+  root->frequency.clear();
+  root->haplotypes.clear();
+  root->positions.clear();
+  root->ranges.clear();
+  root->final_positions.clear();
+  root->final_haplotypes.clear(); 
+  clear(root);
+}
+
 // A utility function to insert a new Interval Search Tree Node
 // This is similar to BST Insert.  Here the low value of interval
 // is used tomaintain BST property
@@ -125,6 +143,9 @@ void IntervalTree::find_amplicon_per_read(ITNode *root, uint32_t start, uint32_t
    * the haplotype, positions, and frequencies to to internval tree object.
    */
   if (root == NULL) return;
+  //std::cout << "Low: " << root->data->low << " High: " << root->data->high << std::endl;
+  //std::cout << "Low Inner: " << root->data->low_inner << " High Inner: " << root->data->high_inner << std::endl;
+
   //yes karthik, I know this is poorly written
   if(reverse){
     if((root->data->high_inner+1 - 10 < end) && (root->data->high_inner + 10 + 1 > end)){
@@ -135,10 +156,6 @@ void IntervalTree::find_amplicon_per_read(ITNode *root, uint32_t start, uint32_t
         //unzip the newly modifed haplotypes
         unzip(zipped, haplotypes, positions);
         if(zipped.size() == 0){return;}
-        //add information to amplicon
-        //for(uint32_t p = 0; p < positions.size(); p++){
-        //  std::cout << "zippy " << positions[p] << " " << haplotypes[p] << std::endl;
-        //}
         root->haplotypes.push_back(haplotypes);
         root->positions.push_back(positions);
         root->ranges.push_back(range);
@@ -147,17 +164,17 @@ void IntervalTree::find_amplicon_per_read(ITNode *root, uint32_t start, uint32_t
     }
   }else{
     if((root->data->low_inner - 10 - 1 < start) && (root->data->low_inner + 10 - 1 >  start)){
-     std::vector<std::pair<std::uint32_t, int>> zipped = _trim_read_positions(haplotypes, positions, 
-          root->data->low, root->data->high);
-        if(zipped.size() == 0){return;}
-        //unzip the newly modifed haplotypes
-        unzip(zipped, haplotypes, positions);
-        root->haplotypes.push_back(haplotypes);
-        root->positions.push_back(positions);
-        root->ranges.push_back(range);
-        //always increment the read count, even if the read macthes the ref perfectly
-        root->read_count += 1;
-        return;
+      std::vector<std::pair<std::uint32_t, int>> zipped = _trim_read_positions(haplotypes, positions, 
+        root->data->low, root->data->high);
+      if(zipped.size() == 0){return;}
+      //unzip the newly modifed haplotypes
+      unzip(zipped, haplotypes, positions);
+      root->haplotypes.push_back(haplotypes);
+      root->positions.push_back(positions);
+      root->ranges.push_back(range);
+      //always increment the read count, even if the read macthes the ref perfectly
+      root->read_count += 1;
+      return;
    }
   }
   find_amplicon_per_read(root->right, start, end, haplotypes, positions, reverse, range, all_positions);
