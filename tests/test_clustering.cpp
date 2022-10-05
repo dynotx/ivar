@@ -6,6 +6,10 @@
 #include "../src/clustering.h"
 #include "../src/kmeans.h"
 
+void reset_positions(std::vector<position> all_positions){
+
+}
+
 int _unit_test_haplotype_extraction(){
   /*
    * @return success : 0 for passing else failing 
@@ -47,6 +51,8 @@ int _unit_test_frequencies(){
   /*
    * Unit test for the function create_frequency_matrix.
    */
+  int success = 0;
+
   int32_t primer_offset = 0;
   std::string pair_info = "../data/contamination_tests/primer_pairs.tsv";
   std::string bed = "../data/contamination_tests/sars_primers_strand.bed";
@@ -82,6 +88,8 @@ int _unit_test_frequencies(){
   /* Generate some fake haplotypes / positions to test.
    * Using the amplicon between 23601-23619 23728-23751.
    *
+   * In this fictional genome 23700 reference is T
+   *
    * Case A. Drop position 23700 w/ mutation frequency < 0.03, return empty frequency vector
    * Case B. Drop position 23700 w/ mutation depth < 10, return empty frequency vector
    * Case C. Two mutations at 23700 in proportions 0.30, 0.20, match ref 0.50
@@ -94,32 +102,40 @@ int _unit_test_frequencies(){
   bool reverse = false;
   uint32_t abs_start_pos = 23620;
   uint32_t abs_end_pos = 23727;
-
+  std::vector<std::string> nucleotides;
   std::vector<uint32_t> range = {23620, 23727};
 
-  //Case A
+  //Case A 
   positions = {23700};
   haplotypes = {-2};
+  nucleotides = {"T"};
   int i = 0;
   //add haplotypes that match the reference 1000 times
   while(i < 1000){
     amplicons.find_amplicon_per_read(abs_start_pos, abs_end_pos, haplotypes, positions, reverse, range, all_positions);
+    update_allele_depth(all_positions, nucleotides, positions);
     i++;
   }
-  positions.clear();
-  positions = {0};
+  nucleotides.clear();
+  haplotypes.clear();
+  haplotypes = {0};
+  nucleotides = {"A"};
   i = 0;
   //add a mutation 10 time
   while(i < 10){
     amplicons.find_amplicon_per_read(abs_start_pos, abs_end_pos, haplotypes, positions, reverse, range, all_positions);
+    update_allele_depth(all_positions, nucleotides, positions);
     i++;
   }
   //try to create the frequency matrix
   frequencies = create_frequency_matrix(amplicons, all_positions);
-  std::cout << "frequency matrix results" << std::endl;
-  for(double x: frequencies){
-    std::cout << x << " ";
+  if(frequencies.size() == 0){
+    success += 1;
   }
+
+  //Case B
+  nucleotides.clear();
+  haplotypes.clear();
 
   return(0);
 }
