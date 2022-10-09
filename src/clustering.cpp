@@ -1015,7 +1015,9 @@ int determine_threshold(std::string bam, std::string bed, std::string pair_info,
   
   std::string cluster_filename = prefix + "_cluster_results.txt";
   ofstream file;
+  //open the file to save clustering results
   file.open(cluster_filename, ios_base::app);
+  file << "sil_score\tcluster_centers\tn_clusters\n";
   //dump additional information to a file such as (1) cluster values (2) cluster centers
   for(cluster x : all_cluster_results){
     file << x.sil_score << "\t";
