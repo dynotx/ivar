@@ -20,6 +20,25 @@
 #include "kmeans.h"
 using namespace alglib;
 
+bool check_nucleotide(std::string nt){
+  /*
+   * Helper function to determine if a nucelotide is a valid string.
+   */
+  if(nt == "A"){
+    return(true);
+  }else if (nt == "C"){
+    return(true);
+  }else if (nt == "G"){
+    return(true);
+  }else if(nt == "T"){
+    return(true);
+  }else if(nt == "N"){
+    return(true);
+  }else{
+    return(false);
+  }
+}
+
 std::vector<std::vector<uint32_t>> transpose(const std::vector<std::vector<uint32_t>> data) {
   // this assumes that all inner vectors have the same size and
   // allocates space for the complete result in advance
@@ -141,11 +160,12 @@ int encoded_nucs(std::string &tmp){
    *
    * Encoded the char passed using the following system:
    * Soft Clipped : -1
-   * Match Ref : 0
-   * A : 1
-   * C : 2 
-   * G : 3
-   * T : 4
+   * Match Ref : -2
+   * A : 0
+   * C : 1 
+   * G : 2
+   * T : 3
+   * Del : 4
    */
   int encoded_nuc = -1;
   
@@ -159,10 +179,6 @@ int encoded_nucs(std::string &tmp){
     encoded_nuc = 3;
   }else if(tmp == "D"){
     encoded_nuc = 4;
-  }else if(tmp == "I"){
-    encoded_nuc = 5;
-  }else if(tmp == "S"){
-    encoded_nuc = 6;
   }
   return(encoded_nuc);
 }
@@ -184,21 +200,16 @@ void parse_md_tag(uint8_t *aux, std::vector<int> &haplotypes, std::vector<uint32
    * Any discrepency between the cigar string and MD tag means insertions are in the read.
    * Cigar code handles insertions and deletions elsewhere.
    */
-
   //also record the pos that match the reference
   std::vector<uint32_t> ref_pos;
   std::vector<std::string> ref_nt;
 
-  //std::cout << "aux " << aux << std::endl;
-  //std::cout << "reverse " << reverse << std::endl;
-  //std::cout << "abs start pos " << abs_start_pos << " abs end pos " << abs_end_pos << std::endl;
-
   bool deletion = false; //helping track the deletions
   std::string digits; //helping to track number operations 
   std::string nucs;
-  std::string soft = "S";
   std::string del = "D";
   std::string nt;
+  std::vector<uint32_t> deletions; //record deletion spots to skip when adding ref nucs
   int i = 0;
   uint32_t index_loc;
   if(!reverse && correction_factor != 0){
@@ -206,22 +217,22 @@ void parse_md_tag(uint8_t *aux, std::vector<int> &haplotypes, std::vector<uint32
   }else{
     index_loc = correction_factor-1;
   }
-
- 
   std::vector<std::string> nucleotides; //store the substituions & deletions
   do {
-   char tmp = aux[i]; //this is the reference nuc   
-    //std::cout << "tmp " << tmp << " " << nucs << " " << digits << std::endl;
-    //TODO makes this deletion part work
+    char tmp = aux[i]; //this is the reference nuc 
     if(isdigit(tmp)){ //on digit character
       if(deletion){
         deletion = false;
-        abs_start_pos += std::stoi(digits) + nucs.length();
-        positions.push_back(abs_start_pos);
-        nt = '*';
-        haplotypes.push_back(encoded_nucs(del));
-        nucleotides.push_back(nt);
+        for(uint32_t len = 0; len < nucs.length(); len++){
+          deletions.push_back(abs_start_pos + len);
+          positions.push_back(abs_start_pos + len);
+          haplotypes.push_back(encoded_nucs(del));
+          nt = '*';
+          nucleotides.push_back(nt);
+        }
+        //abs_start_pos += std::stoi(digits) + nucs.length();
         nucs.clear();
+        digits.clear();
       }
       deletion = false;
       digits += tmp;
@@ -236,13 +247,19 @@ void parse_md_tag(uint8_t *aux, std::vector<int> &haplotypes, std::vector<uint32
         //check if the position already got soft clipped
         abs_start_pos += std::stoi(digits) + nucs.length();
         positions.push_back(abs_start_pos);
+        nt = "";
         nt = seq_nt16_str[bam_seqi(seq, abs_start_pos+index_loc - length)];
+        if(!check_nucleotide(nt)){
+          std::cout << "\nhere" << std::endl;
+          std::cout << "index loc " << index_loc << std::endl;
+          std::cout << "request " << abs_start_pos + index_loc - length << std::endl;
+          std::cout << "reverse " << reverse << std::endl;
+          std::cout << "aux " << aux << " pos " << abs_start_pos << std::endl;
+          //std::cout << "qname " << bam_get_qname(r) << std::endl;
+          std::cout << "abs start pos " << length << " abs end pos " << abs_end_pos <<std::endl;
+        }
         nucleotides.push_back(nt);
         haplotypes.push_back(encoded_nucs(nt));
-        //std::cout << abs_start_pos << " " << nt << " " << encoded_nucs(nt) << std::endl;
-        //std::cout << "correction factor " << correction_factor << " " << length << std::endl;
-        //std::cout << abs_start_pos+correction_factor - length << std::endl;
-        //std::cout << abs_start_pos << " " << nt << std::endl;
         digits.clear();
         nucs.clear();
         nucs += tmp;
@@ -251,47 +268,56 @@ void parse_md_tag(uint8_t *aux, std::vector<int> &haplotypes, std::vector<uint32
         nucs += tmp;
       }
     }else if (tmp == '^'){
-      //std::cout << "is del" << std::endl;
+      nucs.clear(); //deletions recorded after
       deletion = true; 
     }
     i++;
   } while(aux[i] != '\0');
+  int soft_clipped = -2;
+  uint32_t seq_pos = 0;
+  std::vector<uint32_t>::iterator it;
+  std::vector<uint32_t>::iterator it_ignore;
+  std::vector<uint32_t>::iterator it_deletion;
 
-  /*for(uint32_t x : positions){
-    if(x == 23063){
-      std::cout << aux << std::endl;
-    }
-  }*/
+  //fill out the reference matching positions too
+  //main issue to watch out for is deletions will shift the NT pos
 
-  //fill out the reference matching position too
+  uint32_t relative_seq_pos = length;
   for(uint32_t z = length; z < abs_end_pos; z++){
-    //std::cout << "z " << z << " length " << length << " cf " << correction_factor << std::endl;
-    std::vector<uint32_t>::iterator it = std::find(positions.begin(), positions.end(), z);
-    std::vector<uint32_t>::iterator it_ignore = std::find(ignore_positions.begin(), ignore_positions.end(), z);
+    //if this is a deletion position we pass it
+    it_deletion = std::find(deletions.begin(), deletions.end(), z);
+    if(it_deletion != deletions.end()){
+      continue;
+    }
+    it = std::find(positions.begin(), positions.end(), z);
+    it_ignore = std::find(ignore_positions.begin(), ignore_positions.end(), z);
     //position wasn't found to be a variant and wasn't found in soft clipped regions
     if(it == positions.end() && it_ignore == ignore_positions.end()){
       ref_pos.push_back(z);
-      uint32_t index_loc;
-      if(!reverse && correction_factor != 0){
-        index_loc = z - length + correction_factor-2;
-      }else{
-        index_loc = z-length+correction_factor-1;
-      }
+      seq_pos = relative_seq_pos  - length;
       //add ref to haplotypes so it can later be removed
       positions.push_back(z);
-      haplotypes.push_back(-2);
-      nt = seq_nt16_str[bam_seqi(seq, index_loc)];
+      haplotypes.push_back(soft_clipped);
+      nt = "";
+      nt = seq_nt16_str[bam_seqi(seq, seq_pos)];
+      if(!check_nucleotide(nt)){
+        std::cout << "\n";       
+        std::cout << "\nseq pos " << seq_pos << std::endl;
+        std::cout << "aux " << aux << std::endl;
+        std::cout << "problem loc by ref " << seq_pos + length << std::endl;
+        std::cout << "start " << length << " end " << abs_end_pos << std::endl;
+        std::cout << "index loc " << index_loc << " z " << z << " correction factor " << correction_factor << std::endl;
+        std::cout << "bad nucelotide " << nt << std::endl;
+        /*for(int x = 0; x < 10; x++){
+          std::cout << seq_nt16_str[bam_seqi(seq, x)] << " ";
+          std::cout << "\n";
+        }*/
+      }
       ref_nt.push_back(nt);
+      relative_seq_pos += 1;
     }
   }
-  /*for(uint32_t x = 0; x < positions.size(); x++){
-    std::cout << positions[x] << " " << nucleotides[x] << std::endl;
-  }
-  for(int y : haplotypes){
-    std::cout << y << " ";
-  }*/
 
-  //std::cout << "\n";
   if(ref_pos.size() > 0){
     update_allele_depth(all_positions, ref_nt, ref_pos);
   }
@@ -471,7 +497,7 @@ void iterate_reads(bam1_t *r, IntervalTree &amplicons, std::vector<position> &al
    * @param track_haplotypes : vector containing haplotype objects per amplicon
    * 
    * In this function we encode the changes to the reference as follows:
-   * A:0, C:1, G:2, T:4, Del:5, Ins:6
+   * A:0, C:1, G:2, T:4, Del:5
    */
 
   //get the cigar operation 
@@ -492,6 +518,9 @@ void iterate_reads(bam1_t *r, IntervalTree &amplicons, std::vector<position> &al
 
   //get pointer to MD:Z tag which tells us where substitutions are
   uint8_t *aux = bam_aux_get(r, "MD");
+  if(aux == NULL){
+    std::cout << "No md tag generated." << std::endl;
+  }
   //temp variable to count positions
   uint32_t start = 0;
   //this refers to the start position relative to the reference
@@ -509,6 +538,7 @@ void iterate_reads(bam1_t *r, IntervalTree &amplicons, std::vector<position> &al
   std::string nucs;
   uint32_t correction_factor = 0;
   bool first_pass = true;
+  char nt;
   //test lines
   //std::cout << "abs start " << abs_start_pos << " abs end " << abs_end_pos << std::endl;
   //remember 0 is false in c++
@@ -542,7 +572,7 @@ void iterate_reads(bam1_t *r, IntervalTree &amplicons, std::vector<position> &al
       //go get each nt in the insertion region
       for(uint32_t x = 0; x < op_len; x++){
         //the nucelotide at the insertion poi
-        char nt = seq_nt16_str[bam_seqi(seq, start+x)];
+        nt = seq_nt16_str[bam_seqi(seq, start+x)];
         nucs += nt;
         //in this process, the positions are not longer in numeric order
         haplotypes.push_back(encoded_nucs(nucs));
@@ -556,20 +586,18 @@ void iterate_reads(bam1_t *r, IntervalTree &amplicons, std::vector<position> &al
                    
     i++;
   }
-   
   parse_md_tag(aux, haplotypes, positions, abs_start_pos, all_positions, seq, abs_start_pos, correction_factor, abs_end_pos, ignore_positions, reverse);
   if(positions.size() > 0){
-   //reoder the positions to be consistent
-  reorder_haplotypes(haplotypes, positions);
-  //places haplotype on amplicon node
-  amplicons.find_amplicon_per_read(abs_start_pos, abs_end_pos, haplotypes, positions, reverse, range, all_positions); 
-  //std::cout << "\n";  
+    //reoder the positions to be consistent
+    reorder_haplotypes(haplotypes, positions);
+    //places haplotype on amplicon node
+    amplicons.find_amplicon_per_read(abs_start_pos, abs_end_pos, haplotypes, positions, reverse, range, all_positions); 
   }
 }
 
 void count_haplotype_occurences(std::vector<std::vector<int>> all_haplotypes, std::vector<std::vector<int>> &save_haplotypes, std::vector<double> &save_read_counts, double &adjusted_read_count){
   /*
-   *
+   * Combine haplotypes that are the same, count the unique ones, ajust the read counts to remove things that onlyinclude soft clipping and matching the reference.
    */
 
   //find the unique haplotypes in the transposed set
@@ -719,7 +747,6 @@ std::vector<double> create_frequency_matrix(IntervalTree &amplicons, std::vector
     positions = node->positions;
     haplotypes = node->haplotypes;
     ranges = node->ranges;
-    //std::cout << "\nLow: " << node->data->low << " High: " << node->data->high << std::endl;    
 
     //pool all the positions that have been modified in order to create a table
     std::vector<uint32_t> flattened = flatten(positions);
@@ -736,13 +763,11 @@ std::vector<double> create_frequency_matrix(IntervalTree &amplicons, std::vector
       position = positions[i];
       haplotype = haplotypes[i];
       range = ranges[i];
-
       //initialize vector assuming positions are covered
       std::vector<int> expanded_haplotypes(flattened.size(), -1);
 
       //fill out this haplotype with -1 for the things that aren't covered or soft clipped
       for(uint32_t i = 0; i < position.size(); i++){
-      
         //calculate allele frequency
         if(haplotype[i] >= 0){
           allele_positions = all_positions[position[i]];
@@ -796,6 +821,7 @@ std::vector<double> create_frequency_matrix(IntervalTree &amplicons, std::vector
     node->final_haplotypes = save_haplotypes;
     node->final_positions = final_positions;
     for(double d: save_read_counts){
+      //std::cout << d << " adjusted read count " << adjusted_read_count << " read count " << read_count << std::endl;
       node->frequency.push_back(d / adjusted_read_count);
       frequencies.push_back(d / adjusted_read_count);
     }
@@ -925,16 +951,15 @@ int determine_threshold(std::string bam, std::string bed, std::string pair_info,
   int read_counter = 0;
   //this iterates over the reads and assigns them to an amplicon
   while(sam_itr_next(in, iter, aln) >= 0) {
-    if(read_counter % 10000 == 0){
+    if(read_counter % 100000 == 0){
       std::cout << read_counter << " reads processed." << std::endl;
     }
-    //std::cout << "\n";
-    //std::cout << read_counter << " " << bam_get_qname(aln) << std::endl;
+    //std::cout << bam_get_qname(aln) << std::endl;
     //pull out the relevant diff from reference
     iterate_reads(aln, amplicons, all_positions);
     read_counter += 1;
   }
-
+  std::cout << "end read processing." << std::endl;
   //extract those reads into a format useable in the clustering
   std::vector<double> all_frequencies = create_frequency_matrix(amplicons, all_positions);
   //remove perfect 1 haplotypes
@@ -945,7 +970,7 @@ int determine_threshold(std::string bam, std::string bed, std::string pair_info,
     }), all_frequencies.end());
   //test lines
   //print_allele_depths(all_positions[2716].ad);
-
+  std::cout << "prior to amplicon dump" << std::endl;
   //test lines
   //amplicons.print_amplicon_summary();  
   amplicons.dump_amplicon_summary(output_amplicon);
@@ -987,15 +1012,7 @@ int determine_threshold(std::string bam, std::string bed, std::string pair_info,
   int largest_cluster_index = std::max_element(choice_cluster.centers.begin(), choice_cluster.centers.end()) - choice_cluster.centers.begin();
   //this marks the lower bound of the largest cluster
   threshold = choice_cluster.cluster_bounds[largest_cluster_index][0];
-
-  //determine whether or not we should call consensus
-  if(choice_cluster.sil_score <= 0.80 || threshold <= 0.5){
-    return(0);
-  }
-
-  //call consensus
-  call_consensus_from_vector(all_positions, seq_id, prefix, min_qual, threshold, min_depth, gap, min_coverage_flag, min_insert_threshold);
-
+  
   std::string cluster_filename = prefix + "_cluster_results.txt";
   ofstream file;
   file.open(cluster_filename, ios_base::app);
@@ -1009,6 +1026,15 @@ int determine_threshold(std::string bam, std::string bed, std::string pair_info,
     file << x.n_clusters << "\n";
   }
   file.close();
+
+
+  //determine whether or not we should call consensus
+  if(choice_cluster.sil_score <= 0.80 || threshold <= 0.5){
+    return(0);
+  }
+
+  //call consensus
+  call_consensus_from_vector(all_positions, seq_id, prefix, min_qual, threshold, min_depth, gap, min_coverage_flag, min_insert_threshold);
 
   return 0;
 }

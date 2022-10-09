@@ -37,7 +37,10 @@ double cluster_point_distances(alglib::real_2d_array X, alglib::kmeansreport rep
 void calculate_sil_score(alglib::real_2d_array X, alglib::kmeansreport rep,int n_clusters, cluster &cluster_results);
 std::vector<double> create_frequency_matrix(IntervalTree &amplicons, std::vector<position> all_positions);
 int determine_threshold(std::string bam, std::string bed, std::string pair_info, int32_t primer_offset, double min_insert_threshold, uint8_t min_qual, char gap, double min_depth, bool min_coverage_flag, std::string prefix);
-
+void parse_md_tag(uint8_t *aux, std::vector<int> &haplotypes, std::vector<uint32_t> &positions,
+    uint32_t abs_start_pos, std::vector<position> &all_positions,
+    uint8_t *seq, uint32_t length, uint32_t correction_factor, uint32_t abs_end_pos,
+    std::vector<uint32_t> ignore_positions, bool reverse);
 std::string decoded_nucs(int tmp);
 std::vector<std::vector<int>> transpose(const std::vector<std::vector<int>> data);
 #endif

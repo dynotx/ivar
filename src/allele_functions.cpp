@@ -54,9 +54,9 @@ int find_ref_in_allele(std::vector<allele> ad, char ref){
 //overload function for storing alleles depths as reads are iterated
 void update_allele_depth(std::vector<position> &all_positions, std::vector<std::string> nucleotides, std::vector<uint32_t> positions){
   /*
-   * @param ad : vector containing all previously recorded alleles
-   * @param nucleotides : vector containing the SNP NT values
-   * @param positions : vector containing the SNP positions
+   * @param all_positions : vector containing all position information including alleles
+   * @param nucleotides : vector containing the SNV NT values
+   * @param positions : vector containing the SNV positions
    * @param qualities : vector containing variant qualities **TODO**
    *
    * Function takes in the variants for a read and populates the allele data structure. All reads
@@ -64,7 +64,8 @@ void update_allele_depth(std::vector<position> &all_positions, std::vector<std::
    */
 
   //TODO sometimes len of pos and nt not same
-   uint32_t location = 0;
+  uint32_t location = 0;
+  int allele_location = 0;
   //iterate over the variants
   for(uint32_t i = 0; i < nucleotides.size(); i++){
     //int location = check_pos_exists(positions[i], all_positions);
@@ -72,9 +73,10 @@ void update_allele_depth(std::vector<position> &all_positions, std::vector<std::
     
     //this position already exists
     all_positions[location].depth += 1;
-    int allele_location = check_allele_exists(nucleotides[i], all_positions[location].ad);
+    allele_location = check_allele_exists(nucleotides[i], all_positions[location].ad);
     //allele doesn't exist
     if(allele_location == -1){
+      //std::cout << nucleotides[i] << " i " << i << std::endl;
       allele new_allele;
       new_allele.depth = 1;
       new_allele.nuc = nucleotides[i];
