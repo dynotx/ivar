@@ -1011,21 +1011,27 @@ int determine_threshold(std::string bam, std::string bed, std::string pair_info,
   //find the largest cluster center
   int largest_cluster_index = std::max_element(choice_cluster.centers.begin(), choice_cluster.centers.end()) - choice_cluster.centers.begin();
   //this marks the lower bound of the largest cluster
-  threshold = choice_cluster.cluster_bounds[largest_cluster_index][0];
+  threshold = choice_cluster.cluster_bounds[largest_cluster_index][0] - 0.01;
   
+  int tmp_cluster_index;
+  double tmp_thresh;
   std::string cluster_filename = prefix + "_cluster_results.txt";
   ofstream file;
   //open the file to save clustering results
   file.open(cluster_filename, ios_base::app);
-  file << "sil_score\tcluster_centers\tn_clusters\n";
+  file << "sil_score\tcluster_centers\tn_clusters\tthreshold\n";
   //dump additional information to a file such as (1) cluster values (2) cluster centers
   for(cluster x : all_cluster_results){
+    //threshold for if we chose this cluster
+    tmp_cluster_index = std::max_element(x.centers.begin(), x.centers.end()) - x.centers.begin();
+    tmp_thresh = x.cluster_bounds[tmp_cluster_index][0] - 0.01;
     file << x.sil_score << "\t";
     for(double c : x.centers){
       file << c << "_";
     }
     file << "\t";
-    file << x.n_clusters << "\n";
+    file << x.n_clusters << "\t";
+    file << tmp_thresh << "\n";
   }
   file.close();
 
