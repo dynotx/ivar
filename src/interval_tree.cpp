@@ -192,39 +192,40 @@ ITNode* IntervalTree::iterate_nodes(ITNode *root){
   return(root);
 }
 
-//use this to dump amplicon summary data to a json file
+//use this to dump amplicon summary data to a tab seperated text file
 void IntervalTree::dump_amplicon_summary(ITNode *root, std::string filename){
   /*
    * @param root : node of the interval tree
    * @param filename : full path to file where amplicon information is stored
+   *
+   * Opens tab seperated text file and writes information related to amplicon level
+   * haplotypes and frequencies.
    */
   ofstream file;
   if (root == NULL) return;
   if ((root->read_count != 0) && (root->final_positions.size() > 0)){
+    //open the amplicon info file
     file.open(filename, ios_base::app);
+    //set the file headers
+    file << "lower_primer\tupper_primer\tread_count\tpositions\tfrequencies\thaplotypes\n";
     file << root->data->low << "\t";
     file << root->data->high << "\t";
     file << root->read_count << "\t";  
     int count = 0;
     std::string positions;
-    //std::cout << root->data->low << " " << root->data->high << std::endl;
     for(uint32_t x:root->final_positions){
-      //std::cout << x << " ";
       if(count !=0){ positions += "_";}
       count += 1;
       positions += std::to_string(x);
     }
-    //std::cout << "\n";
     file << positions << "\t"; 
     std::string frequency;
     count = 0;
     for(float i:root->frequency){
-      //std::cout << i << " ";
       if(count !=0){frequency += "_";}
       count += 1;
       frequency += std::to_string(i);
     }
-    //std::cout << "\n";
     file << frequency << "\t";
     
     std::string haplotypes;
@@ -233,13 +234,13 @@ void IntervalTree::dump_amplicon_summary(ITNode *root, std::string filename){
     int count_tmp = 0;
     //something weird going on with this
     for(std::vector<int> hap:root->final_haplotypes){
+      tmp.clear();
+      count_tmp = 0;
       for(int h:hap){
-        //std::cout << h << " ";
         if(count_tmp != 0){tmp += "_";}
         tmp += std::to_string(h);
         count_tmp += 1;
       }
-      //std::cout << "\n";
       if(count != 0){haplotypes += ";";}
       haplotypes += tmp;
       count += 1;
