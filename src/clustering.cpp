@@ -186,7 +186,7 @@ int encoded_nucs(std::string &tmp){
 void parse_md_tag(uint8_t *aux, std::vector<int> &haplotypes, std::vector<uint32_t> &positions,
     uint32_t abs_start_pos, std::vector<position> &all_positions,
     uint8_t *seq, uint32_t length, uint32_t correction_factor, uint32_t abs_end_pos,
-    std::vector<uint32_t> ignore_positions, bool reverse){
+    std::vector<uint32_t> ignore_positions, bool reverse, bam1_t *r){
   /*
    * @param aux : the md tag
    * @param haplotypes : vector with encoded nuc haplotypes
@@ -203,7 +203,7 @@ void parse_md_tag(uint8_t *aux, std::vector<int> &haplotypes, std::vector<uint32
   //also record the pos that match the reference
   std::vector<uint32_t> ref_pos;
   std::vector<std::string> ref_nt;
-
+  //uint32_t *cigar = bam_get_cigar(r);
   bool deletion = false; //helping track the deletions
   std::string digits; //helping to track number operations 
   std::string nucs;
@@ -211,13 +211,8 @@ void parse_md_tag(uint8_t *aux, std::vector<int> &haplotypes, std::vector<uint32
   std::string nt;
   std::vector<uint32_t> deletions; //record deletion spots to skip when adding ref nucs
   int i = 0;
-  uint32_t index_loc;
-  if(!reverse && correction_factor != 0){
-    index_loc = correction_factor-2;
-  }else{
-    index_loc = correction_factor-1;
-  }
   std::vector<std::string> nucleotides; //store the substituions & deletions
+  //std::cout << "top\n";
   do {
     char tmp = aux[i]; //this is the reference nuc 
     if(isdigit(tmp)){ //on digit character
@@ -229,6 +224,7 @@ void parse_md_tag(uint8_t *aux, std::vector<int> &haplotypes, std::vector<uint32
           haplotypes.push_back(encoded_nucs(del));
           nt = '*';
           nucleotides.push_back(nt);
+          //std::cout << nt << " " << abs_start_pos << " " << digits << " " << nucs << std::endl;
         }
         //abs_start_pos += std::stoi(digits) + nucs.length();
         nucs.clear();
@@ -248,16 +244,21 @@ void parse_md_tag(uint8_t *aux, std::vector<int> &haplotypes, std::vector<uint32
         abs_start_pos += std::stoi(digits) + nucs.length();
         positions.push_back(abs_start_pos);
         nt = "";
-        nt = seq_nt16_str[bam_seqi(seq, abs_start_pos+index_loc - length)];
+        nt = seq_nt16_str[bam_seqi(seq, abs_start_pos+correction_factor - length - 1)];
         if(!check_nucleotide(nt)){
-          std::cout << "\nhere" << std::endl;
-          std::cout << "index loc " << index_loc << std::endl;
-          std::cout << "request " << abs_start_pos + index_loc - length << std::endl;
+          std::cout << "\n" << std::endl;
+          std::cout << "BAD NUCLEOTIDE" << std::endl;
+          std::cout << "nt " << nt << std::endl;
+          std::cout << "correction factor " << correction_factor << std::endl;
+          std::cout << "length " << length << std::endl;
+          std::cout << "request " << abs_start_pos + correction_factor - length - 1<< std::endl;
           std::cout << "reverse " << reverse << std::endl;
-          std::cout << "aux " << aux << " pos " << abs_start_pos << std::endl;
-          //std::cout << "qname " << bam_get_qname(r) << std::endl;
+          std::cout << "aux " << aux << std::endl;
+          std::cout << "position used calc " << abs_start_pos << std::endl;
+          std::cout << "qname " << bam_get_qname(r) << std::endl;
           std::cout << "abs start pos " << length << " abs end pos " << abs_end_pos <<std::endl;
         }
+        //std::cout << nt << " " << abs_start_pos << " " << digits << " " << nucs << std::endl;
         nucleotides.push_back(nt);
         haplotypes.push_back(encoded_nucs(nt));
         digits.clear();
@@ -306,7 +307,7 @@ void parse_md_tag(uint8_t *aux, std::vector<int> &haplotypes, std::vector<uint32
         std::cout << "aux " << aux << std::endl;
         std::cout << "problem loc by ref " << seq_pos + length << std::endl;
         std::cout << "start " << length << " end " << abs_end_pos << std::endl;
-        std::cout << "index loc " << index_loc << " z " << z << " correction factor " << correction_factor << std::endl;
+        std::cout << " z " << z << " correction factor " << correction_factor << std::endl;
         std::cout << "bad nucelotide " << nt << std::endl;
         /*for(int x = 0; x < 10; x++){
           std::cout << seq_nt16_str[bam_seqi(seq, x)] << " ";
@@ -549,11 +550,9 @@ void iterate_reads(bam1_t *r, IntervalTree &amplicons, std::vector<position> &al
     op = bam_cigar_op(cigar[i]); //cigar operation
     op_len = bam_cigar_oplen(cigar[i]); //cigar length
     
-    //test line
-    //std::cout << op << " " << op_len << std::endl;
     if(op == 4 && first_pass){
       if(!reverse){
-        correction_factor = op_len + 1;
+        correction_factor = op_len;
       }else{
         correction_factor = op_len;
       }
@@ -586,7 +585,7 @@ void iterate_reads(bam1_t *r, IntervalTree &amplicons, std::vector<position> &al
                    
     i++;
   }
-  parse_md_tag(aux, haplotypes, positions, abs_start_pos, all_positions, seq, abs_start_pos, correction_factor, abs_end_pos, ignore_positions, reverse);
+  parse_md_tag(aux, haplotypes, positions, abs_start_pos, all_positions, seq, abs_start_pos, correction_factor, abs_end_pos, ignore_positions, reverse, r);
   if(positions.size() > 0){
     //reoder the positions to be consistent
     reorder_haplotypes(haplotypes, positions);
