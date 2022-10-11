@@ -54,13 +54,13 @@ int _unit_test_parse_md_tag(){
    */
   int success = 0;
 
-  uint32_t abs_start_pos = 23620;
+  /*uint32_t abs_start_pos = 23620;
   uint32_t abs_end_pos = 23727;
   std::vector<position> all_positions;
   std::vector<double> return_frequencies;
   bool reverse = false;
 
-  reset_positions(all_positions);  
+  reset_positions(all_positions);*/
 
   /* Generate some fake haplotypes / positions to test.
    * Using the amplicon between 23601-23619 23728-23751.
@@ -69,16 +69,16 @@ int _unit_test_parse_md_tag(){
    *    Return should be an empty haplotype vector.
    * Case B. Deletion 
    */
-  uint8_t aux = (uint8_t) 'Z2A7';
+  /*uint8_t aux = (uint8_t) 'Z2A7';
   uint8_t seq = (uint8_t) 'ZTTT';
   uint32_t correction_factor = 10;
   uint32_t length = 10;
   std::vector<int> haplotypes;
   std::vector<uint32_t> positions;
-  std::vector<uint32_t> ignore_positions;
+  std::vector<uint32_t> ignore_positions;*/
   
 
-  parse_md_tag(aux, haplotypes, positions, abs_start_pos, all_positions, seq, length, correction_factor, abs_end_pos, ignore_positions, reverse);
+  //parse_md_tag(aux, haplotypes, positions, abs_start_pos, all_positions, seq, length, correction_factor, abs_end_pos, ignore_positions, reverse);
   
 
   return(success);
@@ -315,14 +315,16 @@ int _unit_test_kmeans(){
 }
 
 int main(){
-  int success = 4; //count total number of tests
+  /*int success = 4; //count total number of tests
   success -= _unit_test_frequencies(); //contains 4 tests
   success -= _unit_test_parse_md_tag(); //contains 2 tests
   success -= _integreation_create_haplotypes();
   
   std::cout << "success: " << success << std::endl;
+  */
   //success -= _unit_test_kmeans();
   //success -= _unit_test_sil_score();
+  determine_threshold("../data/contamination_tests/test.calmd.bam", "../data/contamination_tests/sars_primers_strand.bed", "../data/contamination_tests/primer_pairs.tsv", 0, 0.8, 20, 'N', 10, true, "amplicon");
   //determine_threshold("../data/contamination_tests/test.calmd.bam", "../data/contamination_tests/sars_primers_strand.bed", "../data/contamination_tests/primer_pairs.tsv", 0);
   //determine_threshold("../data/contamination_tests/simulated_alpha_beta_90_10.bam", "../data/contamination_tests/sars_primers_strand.bed", "../data/contamination_tests/primer_pairs.tsv", 0);
   return(0);

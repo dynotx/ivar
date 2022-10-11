@@ -203,11 +203,11 @@ void IntervalTree::dump_amplicon_summary(ITNode *root, std::string filename){
    */
   ofstream file;
   if (root == NULL) return;
-  if ((root->read_count != 0) && (root->final_positions.size() > 0)){
+  if ((root->read_count != 0) && (root->final_haplotypes.size() > 0)){
     //open the amplicon info file
     file.open(filename, ios_base::app);
     //set the file headers
-    file << "lower_primer\tupper_primer\tread_count\tpositions\tfrequencies\thaplotypes\n";
+    //file << "lower_primer\tupper_primer\tread_count\tpositions\tfrequencies\thaplotypes\n";
     file << root->data->low << "\t";
     file << root->data->high << "\t";
     file << root->read_count << "\t";  
@@ -245,7 +245,8 @@ void IntervalTree::dump_amplicon_summary(ITNode *root, std::string filename){
       haplotypes += tmp;
       count += 1;
     }
-    file << haplotypes << std::endl;
+    file << haplotypes << "\t";
+    file << root->final_haplotypes.size() << std::endl;
     file.close();
   }
   dump_amplicon_summary(root->right, filename);

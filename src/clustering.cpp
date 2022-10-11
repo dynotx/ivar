@@ -245,9 +245,12 @@ void parse_md_tag(uint8_t *aux, std::vector<int> &haplotypes, std::vector<uint32
         positions.push_back(abs_start_pos);
         nt = "";
         nt = seq_nt16_str[bam_seqi(seq, abs_start_pos+correction_factor - length - 1)];
-        if(!check_nucleotide(nt)){
+        if(reverse){
+        bam_get_qname(r);
+        }
+        /*if(!check_nucleotide(nt)){
           std::cout << "\n" << std::endl;
-          std::cout << "BAD NUCLEOTIDE" << std::endl;
+          std::cout << "BAD NUCLEOTIDE " << nucs << " " << digits << std::endl;
           std::cout << "nt " << nt << std::endl;
           std::cout << "correction factor " << correction_factor << std::endl;
           std::cout << "length " << length << std::endl;
@@ -257,7 +260,7 @@ void parse_md_tag(uint8_t *aux, std::vector<int> &haplotypes, std::vector<uint32
           std::cout << "position used calc " << abs_start_pos << std::endl;
           std::cout << "qname " << bam_get_qname(r) << std::endl;
           std::cout << "abs start pos " << length << " abs end pos " << abs_end_pos <<std::endl;
-        }
+        }*/
         //std::cout << nt << " " << abs_start_pos << " " << digits << " " << nucs << std::endl;
         nucleotides.push_back(nt);
         haplotypes.push_back(encoded_nucs(nt));
@@ -528,6 +531,8 @@ void iterate_reads(bam1_t *r, IntervalTree &amplicons, std::vector<position> &al
   bool reverse = bam_is_rev(r);
   uint32_t abs_start_pos = r->core.pos; //leftmost coordinate on ref
   uint32_t abs_end_pos  = bam_endpos(r); //rightmost coordinate on ref
+  //test lines 
+  if(abs_start_pos > 4932){return;}
   range.push_back(abs_start_pos); //record the read range
   range.push_back(abs_end_pos);
 
@@ -540,11 +545,6 @@ void iterate_reads(bam1_t *r, IntervalTree &amplicons, std::vector<position> &al
   uint32_t correction_factor = 0;
   bool first_pass = true;
   char nt;
-  //test lines
-  //std::cout << "abs start " << abs_start_pos << " abs end " << abs_end_pos << std::endl;
-  //remember 0 is false in c++
-  //std::cout << "reverse " << reverse << std::endl;
-
   //iterate through cigar ops for this read
   while(i < r->core.n_cigar){   
     op = bam_cigar_op(cigar[i]); //cigar operation
@@ -594,11 +594,10 @@ void iterate_reads(bam1_t *r, IntervalTree &amplicons, std::vector<position> &al
   }
 }
 
-void count_haplotype_occurences(std::vector<std::vector<int>> all_haplotypes, std::vector<std::vector<int>> &save_haplotypes, std::vector<double> &save_read_counts, double &adjusted_read_count){
+void count_haplotype_occurences(std::vector<std::vector<int>> all_haplotypes, std::vector<std::vector<int>> &save_haplotypes, std::vector<double> &save_read_counts, double &adjusted_read_count, std::vector<uint32_t> final_positions){
   /*
-   * Combine haplotypes that are the same, count the unique ones, ajust the read counts to remove things that onlyinclude soft clipping and matching the reference.
+   * Combine haplotypes that are the same, count the unique ones, ajust the read counts to remove things that only include soft clipping and matching the reference.
    */
-
   //find the unique haplotypes in the transposed set
   std::vector<std::vector<int>> unique_haplotypes;
   std::vector<double> count_haplotypes;
@@ -606,13 +605,13 @@ void count_haplotype_occurences(std::vector<std::vector<int>> all_haplotypes, st
 
   for(std::vector<int> exp_haplo : all_haplotypes){
     std::vector<std::vector<int>>::iterator it = std::find(unique_haplotypes.begin(), unique_haplotypes.end(), exp_haplo);
-    bool zeros = std::all_of(exp_haplo.begin(), exp_haplo.end(), [](int i) { return i< 0; });
+    bool zeros = std::all_of(exp_haplo.begin(), exp_haplo.end(), [](int i) { return i < 0; });
     if (std::count(exp_haplo.begin(), exp_haplo.end(), -1)){
       continue;
     } 
     adjusted_read_count += 1;
     if(zeros){
-      continue;
+     continue;
     }
     //found
     if(it != unique_haplotypes.end()){
@@ -624,17 +623,20 @@ void count_haplotype_occurences(std::vector<std::vector<int>> all_haplotypes, st
     }
   }
   
-  /*std::cout << "haplotypes\n";
+  std::cout << "haplotypes\n";
   uint32_t x = 0;
+  for(uint32_t o : final_positions){
+    std::cout << o << " ";
+  }
+  std::cout << "\n";
   for(std::vector<int> vect : unique_haplotypes){
-    std::cout << count_haplotypes[x] << std::endl;
+    //std::cout << count_haplotypes[x] << std::endl;
     for(int y : vect){
       std::cout << y << " ";
     }
     x += 1;
     std::cout << "\n";
   }
-  std::cout << "\n";*/
   
   bool match = true;
   uint32_t match_loc = 0;
@@ -692,6 +694,24 @@ void count_haplotype_occurences(std::vector<std::vector<int>> all_haplotypes, st
     save_haplotypes.push_back(unique_haplotypes[p[1]]);
     save_read_counts.push_back(count_haplotypes[p[0]]+count_haplotypes[p[1]]);
   }
+  //this seems redundant but here we once again eliminate positions where we have only things matching the reference
+  //TODO
+  /*std::vector<std::vector<int>> transposed_vector = transpose(unique_haplotypes);
+  std::vector<std::vector<int>> tmp_haplotypes;
+  //std::vector<std::vector<uint32_t> tmp_positions;
+  for(uint32_t y = 0; y < transposed_vector.size(); y++){
+    //check if all values are negative
+    bool zeros = std::all_of(transposed_vector[y].begin(), transposed_vector[y].end(), [](int i) { return i< 0; });
+    if(!zeros){
+      tmp_haplotypes.push_back(transposed_vector[y]);
+      for(int th : transposed_vector[y]){
+        std::cout << th << " ";
+      }
+      //tmp_positions.push_back(flattened[y]);
+    }
+    std::cout << "\n";
+  }*/
+
 
   for(uint32_t i = 0; i < unique_haplotypes.size(); i++){
     std::vector<uint32_t>::iterator it = std::find(flat_pairs.begin(), flat_pairs.end(), i);
@@ -815,7 +835,7 @@ std::vector<double> create_frequency_matrix(IntervalTree &amplicons, std::vector
     std::vector<double> save_read_counts;
     double adjusted_read_count = 0;
     //the haplotypes by index to be condensed, first one is SC second is matched
-    count_haplotype_occurences(transposed_haplotypes, save_haplotypes, save_read_counts, adjusted_read_count);
+    count_haplotype_occurences(transposed_haplotypes, save_haplotypes, save_read_counts, adjusted_read_count, final_positions);
     //save this info to the amplicon
     node->final_haplotypes = save_haplotypes;
     node->final_positions = final_positions;
@@ -958,9 +978,12 @@ int determine_threshold(std::string bam, std::string bed, std::string pair_info,
     iterate_reads(aln, amplicons, all_positions);
     read_counter += 1;
   }
-  std::cout << "end read processing." << std::endl;
+  std::cout << "end read processing." << std::endl; 
   //extract those reads into a format useable in the clustering
   std::vector<double> all_frequencies = create_frequency_matrix(amplicons, all_positions);
+  if(all_frequencies.size() == 0){
+    return(0);
+  }
   //remove perfect 1 haplotypes
   all_frequencies.erase(std::remove_if(
     all_frequencies.begin(), all_frequencies.end(),
@@ -972,6 +995,10 @@ int determine_threshold(std::string bam, std::string bed, std::string pair_info,
   std::cout << "prior to amplicon dump" << std::endl;
   //test lines
   //amplicons.print_amplicon_summary();  
+  ofstream file;
+  file.open(output_amplicon, ios_base::app);
+  file << "lower_primer\tupper_primer\tread_count\tpositions\tfrequencies\thaplotypes\tnumber_haplotypes\n";
+  file.close();
   amplicons.dump_amplicon_summary(output_amplicon);
 
   //reshape it into a real 2d array for alglib
@@ -980,7 +1007,6 @@ int determine_threshold(std::string bam, std::string bed, std::string pair_info,
   for(uint32_t i=0; i < all_frequencies.size(); i++){
     xy(i,0) = all_frequencies[i];
   }
-
   //keep track of best sil score index
   int best_cluster_index = 0;
   double best_sil_score = 0;
@@ -992,12 +1018,11 @@ int determine_threshold(std::string bam, std::string bed, std::string pair_info,
   if(all_frequencies.size() < 6){
     max_n = all_frequencies.size();
   }
-
   //call kmeans clustering
   for (uint32_t n =2, i = 0; n <= max_n; n++, i++){
-   //call kmeans clustering
-   cluster cluster_results; //reset the results
-   k_means(n, xy, cluster_results);
+    //call kmeans clustering
+    cluster cluster_results; //reset the results
+    k_means(n, xy, cluster_results);
     all_cluster_results.push_back(cluster_results);
     if(cluster_results.sil_score > best_sil_score){
       best_sil_score = cluster_results.sil_score;
@@ -1011,11 +1036,10 @@ int determine_threshold(std::string bam, std::string bed, std::string pair_info,
   int largest_cluster_index = std::max_element(choice_cluster.centers.begin(), choice_cluster.centers.end()) - choice_cluster.centers.begin();
   //this marks the lower bound of the largest cluster
   threshold = choice_cluster.cluster_bounds[largest_cluster_index][0] - 0.01;
-  
+
   int tmp_cluster_index;
   double tmp_thresh;
   std::string cluster_filename = prefix + "_cluster_results.txt";
-  ofstream file;
   //open the file to save clustering results
   file.open(cluster_filename, ios_base::app);
   file << "sil_score\tcluster_centers\tn_clusters\tthreshold\n";
@@ -1031,10 +1055,16 @@ int determine_threshold(std::string bam, std::string bed, std::string pair_info,
     file << "\t";
     file << x.n_clusters << "\t";
     file << tmp_thresh << "\n";
+    
+    //test lines print out sorted points
+    /*for(std::vector<double> xx : x.sorted_points){
+      for(double zz : xx){
+        std::cout << zz << " ";
+      }
+      std::cout << "\n";
+    }*/
   }
   file.close();
-
-
   //determine whether or not we should call consensus
   if(choice_cluster.sil_score <= 0.80 || threshold <= 0.5){
     return(0);
