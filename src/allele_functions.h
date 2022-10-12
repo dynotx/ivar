@@ -32,7 +32,7 @@ struct position{
 int check_allele_exists(std::string n, std::vector<allele> ad);
 std::vector<allele> update_allele_depth(char ref,std::string bases, std::string qualities, uint8_t min_qual);
 //for use in consensus thresholding
-void update_allele_depth(std::vector<position> &all_positions, std::vector<std::string> nucleotides, std::vector<uint32_t> positions);
+void update_allele_depth(std::vector<position> &all_positions, std::vector<std::string> nucleotides, std::vector<uint32_t> positions, std::vector<float> qualities);
 void print_allele_depths(std::vector<allele> ad);
 void print_single_allele(allele a);
 int find_ref_in_allele(std::vector<allele> ad, char ref);
