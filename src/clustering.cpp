@@ -1006,6 +1006,7 @@ int determine_threshold(std::string bam, std::string bed, std::string pair_info,
   if(all_frequencies.size() == 0){
     return(0);
   }
+
   //remove perfect 1 haplotypes
   all_frequencies.erase(std::remove_if(
     all_frequencies.begin(), all_frequencies.end(),
