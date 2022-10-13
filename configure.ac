@@ -14,7 +14,7 @@ AC_PROG_INSTALL
 AC_PROG_CPP
 AC_PROG_MKDIR_P
 
-LIBS="-lhts -lp -lpthread ./src/alglib/lib/libalglib.a"
+LIBS="-lhts -lp -lpthread"
 
 # introduce the optional configure parameter for a non-standard install prefix of XXX
 AC_ARG_WITH([hts],
@@ -32,6 +32,8 @@ if test $HTSPATHSET = 1 ; then
     AC_SUBST([AM_CXXFLAGS])
     AC_SUBST([AM_LDFLAGS])
 fi
+
+LDADD = $(LIBS) ./src/alglib/lib/libalglib.a
 
 # Checks for libraries.
 # FIXME: Replace `main' with a function in `-lhts':
