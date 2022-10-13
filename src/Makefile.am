@@ -1,4 +1,4 @@
-LIBS = -lhts -lz -lpthread
+LIBS = -lhts -lz -lpthread ./alglib/lib/libalglib.a
 
 CXXFLAGS = -v -g -std=c++11 -Wall -Wextra -Werror
 
