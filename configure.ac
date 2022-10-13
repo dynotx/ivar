@@ -3,7 +3,7 @@
 
 AC_PREREQ([2.63])
 AC_INIT([ivar], [1.3.1], [gkarthik@scripps.edu])
-AM_INIT_AUTOMAKE([foreign subdir-objects])
+AM_INIT_AUTOMAKE([subdir-objects])
 AC_CONFIG_HEADERS([config.h])
 
 # Checks for programs.
@@ -14,7 +14,7 @@ AC_PROG_INSTALL
 AC_PROG_CPP
 AC_PROG_MKDIR_P
 
-LIBS="-lhts -lp -lpthread ./alglib/lib/libalglib.a"
+LIBS="-lhts -lp -lpthread"
 
 # introduce the optional configure parameter for a non-standard install prefix of XXX
 AC_ARG_WITH([hts],
