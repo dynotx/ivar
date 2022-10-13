@@ -1,7 +1,5 @@
-LIBS = -lhts -lz -lpthread ./alglib/lib/libalglib.a
-
+LIBS = -lhts -lz -lpthread
 CXXFLAGS = -v -g -std=c++11 -Wall -Wextra -Werror
-
 # this lists the binaries to produce, the (non-PHONY, binary) targets in
 # the previous manual Makefile
 bin_PROGRAMS = ivar
