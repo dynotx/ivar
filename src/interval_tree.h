@@ -69,5 +69,5 @@ public:
 };
 
 IntervalTree populate_amplicons(std::string pair_info_file, std::vector<primer> &primers);
-
+void remove_low_quality_nts(ITNode *node, std::vector<position> all_positions);
 #endif

@@ -125,6 +125,7 @@ int _unit_test_frequencies(){
   std::vector<uint32_t> positions;
   std::vector<int> haplotypes;
   std::vector<double> frequencies;
+  std::vector<float> qualities;
   bool reverse = false;
   uint32_t abs_start_pos = 23620;
   uint32_t abs_end_pos = 23727;
@@ -137,10 +138,11 @@ int _unit_test_frequencies(){
   positions = {23700};
   haplotypes = {-2};
   nucleotides = {"T"};
+  qualities = {37};
   //add haplotypes that match the reference 100 times
   while(i < 97){
     amplicons.find_amplicon_per_read(abs_start_pos, abs_end_pos, haplotypes, positions, reverse, range, all_positions);
-    update_allele_depth(all_positions, nucleotides, positions);
+    update_allele_depth(all_positions, nucleotides, positions, qualities);
     i++;
   }
   nucleotides.clear();
@@ -151,7 +153,7 @@ int _unit_test_frequencies(){
   //add a mutation 3 times for 3% frequency
   while(i < 3){
     amplicons.find_amplicon_per_read(abs_start_pos, abs_end_pos, haplotypes, positions, reverse, range, all_positions);
-    update_allele_depth(all_positions, nucleotides, positions);
+    update_allele_depth(all_positions, nucleotides, positions, qualities);
     i++;
   }
   //add a mutation at over 3% frequency
@@ -164,7 +166,7 @@ int _unit_test_frequencies(){
   i = 0;
   while(i < 90){
     amplicons.find_amplicon_per_read(abs_start_pos, abs_end_pos, haplotypes, positions, reverse, range, all_positions);
-    update_allele_depth(all_positions, nucleotides, positions);
+    update_allele_depth(all_positions, nucleotides, positions, qualities);
     i++;
   }
   nucleotides = {"A"};
@@ -173,7 +175,7 @@ int _unit_test_frequencies(){
   //indicates a mutation at 10% frequency
   while(i < 10){
     amplicons.find_amplicon_per_read(abs_start_pos, abs_end_pos, haplotypes, positions, reverse, range, all_positions);
-    update_allele_depth(all_positions, nucleotides, positions);
+    update_allele_depth(all_positions, nucleotides, positions, qualities);
     i++;
   }
 
@@ -194,7 +196,7 @@ int _unit_test_frequencies(){
   //adding 50 match ref, 20 substitution to C, 30 substitution to A
   while(i < 50){
     amplicons.find_amplicon_per_read(abs_start_pos, abs_end_pos, haplotypes, positions, reverse, range, all_positions);
-    update_allele_depth(all_positions, nucleotides, positions);
+    update_allele_depth(all_positions, nucleotides, positions, qualities);
     i++;
   }
   i = 0;
@@ -202,7 +204,7 @@ int _unit_test_frequencies(){
   nucleotides = {"C"};
   while(i < 20){
     amplicons.find_amplicon_per_read(abs_start_pos, abs_end_pos, haplotypes, positions, reverse, range, all_positions);
-    update_allele_depth(all_positions, nucleotides, positions);
+    update_allele_depth(all_positions, nucleotides, positions, qualities);
     i++;
   }
   i = 0;
@@ -210,7 +212,7 @@ int _unit_test_frequencies(){
   nucleotides = {"A"};
   while(i < 30){
     amplicons.find_amplicon_per_read(abs_start_pos, abs_end_pos, haplotypes, positions, reverse, range, all_positions);
-    update_allele_depth(all_positions, nucleotides, positions);
+    update_allele_depth(all_positions, nucleotides, positions, qualities);
     i++;
   }
   frequencies = create_frequency_matrix(amplicons, all_positions);
@@ -228,7 +230,7 @@ int _unit_test_frequencies(){
   //adding 60 match ref, 20 substitution to C, 20 soft clipped
   while(i < 60){
     amplicons.find_amplicon_per_read(abs_start_pos, abs_end_pos, haplotypes, positions, reverse, range, all_positions);
-    update_allele_depth(all_positions, nucleotides, positions);
+    update_allele_depth(all_positions, nucleotides, positions, qualities);
     i++;
   }
   i = 0;
@@ -236,7 +238,7 @@ int _unit_test_frequencies(){
   nucleotides = {"C"};
   while(i < 20){
     amplicons.find_amplicon_per_read(abs_start_pos, abs_end_pos, haplotypes, positions, reverse, range, all_positions);
-    update_allele_depth(all_positions, nucleotides, positions);
+    update_allele_depth(all_positions, nucleotides, positions, qualities);
     i++;
   }
   i = 0;
@@ -261,7 +263,7 @@ int _unit_test_frequencies(){
   //adding 80 match ref, 20 deletion
   while(i < 80){
     amplicons.find_amplicon_per_read(abs_start_pos, abs_end_pos, haplotypes, positions, reverse, range, all_positions);
-    update_allele_depth(all_positions, nucleotides, positions);
+    update_allele_depth(all_positions, nucleotides, positions, qualities);
     i++;
   }
   i = 0;
@@ -269,7 +271,7 @@ int _unit_test_frequencies(){
   nucleotides = {"*"}; //this indicate deletion
   while(i < 20){
     amplicons.find_amplicon_per_read(abs_start_pos, abs_end_pos, haplotypes, positions, reverse, range, all_positions);
-    update_allele_depth(all_positions, nucleotides, positions);
+    update_allele_depth(all_positions, nucleotides, positions, qualities);
     i++;
   }
   frequencies = create_frequency_matrix(amplicons, all_positions);

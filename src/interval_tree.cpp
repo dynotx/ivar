@@ -127,6 +127,37 @@ std::vector<std::pair<std::uint32_t, int>>  _trim_read_positions(std::vector<int
   return(zipped);
 }
 
+void remove_low_quality_nts(ITNode *node, std::vector<position> all_positions){
+  /*
+   * Function takes in a single node and uses average quality information to eliminate positions
+   * within haplotypes that are possible sequencing errors.
+   */
+  if (node == NULL) return;
+  std::vector<allele> allele_storage; 
+  std::string nt;
+  int one = -1;
+  for(uint32_t i = 0; i < node->positions.size(); i++){
+    for(uint32_t x = 0; x < node->positions[i].size(); x++){
+      //we don't care about pos alredy SC or match ref
+      if(node->haplotypes[i][x] < 0){
+        continue;
+      }
+      nt = decoded_nucs(node->haplotypes[i][x]);
+      allele_storage = all_positions[node->positions[i][x]].ad;
+      for (allele a : allele_storage){
+        //find the proper nuc
+        if(nt == a.nuc){
+          //check the quality
+          if(a.mean_qual+0 < 20){
+            //if quality is low we pretend it's soft clipped
+            node->haplotypes[i][x] = one;
+          }
+        }
+      }
+    }
+  }
+}
+
 //traverse the tree and find the amplicon the read belongs within
 void IntervalTree::find_amplicon_per_read(ITNode *root, uint32_t start, uint32_t end, 
     std::vector<int> haplotypes, std::vector<uint32_t> positions, bool reverse,

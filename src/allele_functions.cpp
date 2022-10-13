@@ -21,7 +21,7 @@ void print_allele_depths(std::vector<allele> ad){
       std::cout << "Nuc: " << it->nuc << std::endl;;
       std::cout << "Depth: " << it->depth << std::endl;
       std::cout << "Reverse: " << it->reverse <<std::endl;
-      std::cout << "Qual: " << (uint16_t) it->mean_qual << std::endl;
+      std::cout << "Qual: " << (uint16_t) it->mean_qual  << std::endl;
       std::cout << "Beg: " << it->beg << std::endl;
       std::cout << "End: " << it->end << std::endl;
       std::cout << "Tmp Mean Qual: " << it->tmp_mean_qual << std::endl;
