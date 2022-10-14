@@ -3,7 +3,7 @@
 
 AC_PREREQ([2.63])
 AC_INIT([ivar], [1.3.1], [gkarthik@scripps.edu])
-AM_INIT_AUTOMAKE([subdir-objects])
+AM_INIT_AUTOMAKE([foreign subdir-objects])
 AC_CONFIG_HEADERS([config.h])
 
 # Checks for programs.
@@ -33,8 +33,6 @@ if test $HTSPATHSET = 1 ; then
     AC_SUBST([AM_LDFLAGS])
 fi
 
-LDADD = $(LIBS) ./src/alglib/lib/libalglib.a
-
 # Checks for libraries.
 # FIXME: Replace `main' with a function in `-lhts':
 AC_CHECK_LIB([hts], [main])
@@ -63,3 +61,4 @@ AC_CHECK_FUNCS([memmove])
 
 AC_CONFIG_FILES([Makefile src/Makefile tests/Makefile])
 AC_OUTPUT
+

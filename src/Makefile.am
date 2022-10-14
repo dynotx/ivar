@@ -1,4 +1,5 @@
 LIBS = -lhts -lz -lpthread
+LDADD = $(LIBS) ./alglib/lib/libalglib.a
 AM_CXXFLAGS = -v -g -std=c++11 -Wall -Wextra -Werror
 # this lists the binaries to produce, the (non-PHONY, binary) targets in
 # the previous manual Makefile
