@@ -14,7 +14,7 @@ AC_PROG_INSTALL
 AC_PROG_CPP
 AC_PROG_MKDIR_P
 
-LIBS="-lhts -lp -lpthread"
+LIBS="-lhts -lp -lpthread -l./src/alglib/lib/libalglib."
 
 # introduce the optional configure parameter for a non-standard install prefix of XXX
 AC_ARG_WITH([hts],
